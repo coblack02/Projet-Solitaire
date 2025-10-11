@@ -211,6 +211,7 @@ class Game_queue(Queue):
         else:
             for elem in queue.items:
                 self.deck.enqueue(elem)
+        
 
 class Grid(Game_queue):
     def __init__(self):
