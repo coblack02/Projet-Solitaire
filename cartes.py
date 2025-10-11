@@ -78,29 +78,29 @@ class Card:
 
 class Stock(Stack):
     def __init__(self):
-        self.deck = Stack()  # the deck is an array of 52 cards (4x13)
+        super().__init__()
+        # Create deck of 52 cards
         for c in range(4):
             for h in range(13):
-                new_card = Card(family[c], height[h])  # height starts at 1
-                self.deck.push(new_card)
+                new_card = Card(family[c], height[h])
+                self.push(new_card)
 
     def shuffle(self):
         """Shuffle the deck of cards."""
-        t = self.deck.size()
-        for _ in range(t):
-            h1, h2 = random.randint(t), random.randint(t)
-            self.deck[h1], self.deck[h2] = self.deck[h2], self.deck[h1]
+        temp_list = list(self.items)
+        random.shuffle(temp_list)
+        self.items = deque(temp_list)
 
-    def draw(self):  # depile
+    def draw(self):
         """Draw up to three cards from the stock."""
-        t = self.deck.size()
+        t = self.size()
         res = []
         if t >= 3:
-            carte1, carte2, carte3 = self.deck.pop(), self.deck.pop(), self.deck.pop()
+            carte1, carte2, carte3 = self.pop(), self.pop(), self.pop()
             return [carte1, carte2, carte3]
         elif t > 0:
             for _ in range(t):
-                carte = self.deck.pop()
+                carte = self.pop()
                 res.append(carte)
             return res
         else:
@@ -110,52 +110,44 @@ class Stock(Stack):
 class DiscardPile(Stack):
     """Represents the discard pile in Solitaire."""
 
+    def __init__(self):
+        super().__init__()
+
     def draw(self):
         """Remove and return the top card of the discard pile."""
-        t = self.deck.size()
-        if t > 0:
-            card = self.deck.pop()
-            return card
-        else:
-            return None
+        return self.pop()
 
     def top(self):
         """Returns the top card of the discard pile without removing it."""
-        return self.deck.peek()
+        return self.peek()
 
     def visible(self):
         """Returns up to three cards from the top of the discard pile without removing them."""
-        t = self.deck.size()
+        t = self.size()
         res = []
         if t >= 3:
-            e1, e2, e3 = self.deck.draw(), self.deck.draw(), self.deck.draw()
-            self.deck.stack(e3)
-            self.deck.stack(e2)
-            self.deck.stack(e1)
-            return [e1, e2, e3]
+            # Get the last 3 items without removing them
+            res = [self.items[-3], self.items[-2], self.items[-1]]
+            return res
         elif t > 0:
-            for _ in range(t):
-                elem = self.deck.draw()
-                self.deck.stack(elem)
-                res.append(elem)
+            res = list(self.items)
             return res
         else:
             return None
 
 
-class FinalPile(Stock):
+class FinalPile(Stack):
     """Represents one of the four foundation piles in Solitaire."""
 
     def __init__(self):
         super().__init__()
-        self.deck = []  # start with an empty deck
 
     def can_stack(self, elem: Card):
         """Check if a card can be placed on this final pile."""
-        if len(self.deck) == 0:
+        if self.is_empty():
             return elem.value == "as"
         else:
-            top_card = self.deck[-1]
+            top_card = self.peek()
             if top_card.family == elem.family:
                 top_index = height.index(top_card.value)
                 elem_index = height.index(elem.value)
@@ -166,7 +158,7 @@ class FinalPile(Stock):
     def stack(self, elem: Card):
         """Place a card on this final pile if the move is valid."""
         if self.can_stack(elem):
-            self.deck.stack(elem)
+            self.push(elem)
             return True
         else:
             return False
@@ -175,83 +167,110 @@ class FinalPile(Stock):
 class Game_queue(Queue):
     """Represents one of the seven tableau piles in Solitaire."""
 
-    def __init__(self, length):
+    def __init__(self, stock, length):
+        super().__init__()
+        # Draw cards from the shared stock
         for _ in range(length):
-            self.deck.enqueue(Stock().draw())
+            card = stock.pop()
+            if card:
+                self.enqueue(card)
 
     def can_stack(self, elem: Card):
         """Check if a card can be placed on this tableau pile."""
-        if self.deck.size() == 0:
+        if self.is_empty():
             return elem.value == "roi"
         else:
-            top_card = self.deck.peek()
-            match top_card.family:
-                case "pique" | "trefle":
-                    return (
-                        elem.family in ("coeur", "carreau")
-                        and height.index(elem.value) == height.index(top_card.value) - 1
-                    )
-                case "coeur" | "carreau":
-                    return (
-                        elem.family in ("pique", "trefle")
-                        and height.index(elem.value) == height.index(top_card.value) - 1
-                    )
-                case _:
-                    return False
+            top_card = self.peek()
+            if top_card.family in ("pique", "trefle"):
+                return (
+                    elem.family in ("coeur", "carreau")
+                    and height.index(elem.value) == height.index(top_card.value) - 1
+                )
+            elif top_card.family in ("coeur", "carreau"):
+                return (
+                    elem.family in ("pique", "trefle")
+                    and height.index(elem.value) == height.index(top_card.value) - 1
+                )
+            else:
+                return False
 
-    def move(self, i: int, queue: Queue):
-        """Move the bottom i cards from this queue to a new pile and return them as a Queue."""
+    def move(self, num_cards: int, destination_queue):
+        """Move the bottom num_cards cards from this queue to destination."""
+        if num_cards > self.size():
+            return False
+
         temp = Stack()
-        moved = Queue()
-        t = self.deck.size()
-        for _ in range(i):
-            temp.push(self.deck.dequeue())
-        if queue.can_stack(self.deck.peek()):
-            for _ in range(t - i):
-                moved.enqueue(self.deck.dequeue())
-            for _ in range(temp.size()):
-                self.deck.enqueue(temp.pop())
-            for elem in moved.items:
-                queue.enqueue(elem)
+
+        # Remove num_cards from bottom
+        for _ in range(num_cards):
+            card = self.dequeue()
+            if card:
+                temp.push(card)
+
+        # Check if top card of temp can be placed on destination
+        top_card = temp.peek()
+        if top_card and destination_queue.can_stack(top_card):
+            # Place cards on destination
+            while not temp.is_empty():
+                destination_queue.enqueue(temp.pop())
+            return True
         else:
-            for elem in queue.items:
-                self.deck.enqueue(elem)
+            # Put cards back
+            while not temp.is_empty():
+                self.enqueue(temp.pop())
+            return False
 
 
-class Grid(Game_queue):
+class Grid:
     """Represents the seven tableau piles in Solitaire."""
-    def __init__(self):
-        self.piles = [Game_queue(i) for i in range(1, 8)]
+
+    def __init__(self, stock):
+        self.piles = [Game_queue(stock, i) for i in range(1, 8)]
 
 
 class Game:
     """Represents the overall game state."""
+
     def __init__(self):
         self.stock = Stock()
         self.stock.shuffle()
         self.discard_pile = DiscardPile()
         self.final_piles = [FinalPile() for _ in range(4)]
-        self.grid = Grid()
+        self.grid = Grid(self.stock)
 
 
 class Save:
     """Handles saving and undoing game states."""
+
     def __init__(self, game: Game):
-        self.game_state = [game.stock, game.discard_pile, game.final_piles, game.grid]
+        self.game = game
         self.history = []
 
     def save_state(self):
-        self.history.append(deepcopy(self.game_state))
+        """Save current game state."""
+        state = {
+            "stock": deepcopy(self.game.stock),
+            "discard_pile": deepcopy(self.game.discard_pile),
+            "final_piles": deepcopy(self.game.final_piles),
+            "grid": deepcopy(self.game.grid),
+        }
+        self.history.append(state)
 
     def undo(self):
+        """Restore previous game state."""
         if self.history:
-            self.game_state = self.history.pop()
+            state = self.history.pop()
+            self.game.stock = state["stock"]
+            self.game.discard_pile = state["discard_pile"]
+            self.game.final_piles = state["final_piles"]
+            self.game.grid = state["grid"]
         else:
             print("No more undos available.")
 
 
 class GameController(Game):
     """Manages game state, player actions, and saving/loading."""
+
     def __init__(self):
         super().__init__()
         self.save = Save(self)
@@ -263,50 +282,77 @@ class GameController(Game):
         if drawn_cards:
             for card in drawn_cards:
                 self.discard_pile.push(card)
-                self.turns += 1
-                self.save.save_state()
+            self.turns += 1
+            self.save.save_state()
         else:
             print("Stock is empty.")
 
-    def move_card(self, source, destination, card, index=0):
-        """Move a card from source to destination if the move is valid."""
-        if source == "discard":
-            card_to_move = self.discard_pile.pop()
-            if card_to_move and destination.can_stack(card_to_move):
-                destination.stack(card_to_move)
-                self.turns += 1
-            else:
-                print("Invalid move from discard pile.")
-                return
-        elif isinstance(source, Game_queue):
-            if isinstance(destination, Game_queue):
-                if source.can_stack(card):
-                    source.move(index, destination)
+    def move_from_discard(self, destination):
+        """Move top card from discard pile to destination."""
+        card_to_move = self.discard_pile.pop()
+        if card_to_move:
+            if isinstance(destination, FinalPile):
+                if destination.can_stack(card_to_move):
+                    destination.push(card_to_move)
                     self.turns += 1
-            elif isinstance(destination, FinalPile):
-                card_to_move = source.pop()
-                if card_to_move and destination.can_stack(card_to_move):
-                    destination.stack(card_to_move)
                     self.save.save_state()
-                    self.turns += 1
-            else:
-                print("Invalid move from grid pile.")
-                return
-        elif isinstance(source, FinalPile):
-            if isinstance(destination, Game_queue):
-                card_to_move = source.pop()
-                if card_to_move and destination.can_stack(card_to_move):
+                    return True
+                else:
+                    self.discard_pile.push(card_to_move)
+                    print("Invalid move from discard pile.")
+                    return False
+            elif isinstance(destination, Game_queue):
+                if destination.can_stack(card_to_move):
                     destination.enqueue(card_to_move)
                     self.turns += 1
+                    self.save.save_state()
+                    return True
                 else:
-                    print("Invalid move from final pile to grid.")
-                    return
-            elif isinstance(destination, FinalPile):
-                card_to_move = source.pop()
-                if card_to_move and destination.can_stack(card_to_move):
-                    destination.stack(card_to_move)
-                    self.turns += 1
-                else:
-                    print("Invalid move from final pile to final pile.")
-                    return
-        self.save.save_state()
+                    self.discard_pile.push(card_to_move)
+                    print("Invalid move from discard pile.")
+                    return False
+        return False
+
+    def move_card(self, source, destination, num_cards=1):
+        """Move card(s) from source to destination if the move is valid."""
+        if isinstance(source, Game_queue) and isinstance(destination, Game_queue):
+            if source.move(num_cards, destination):
+                self.turns += 1
+                self.save.save_state()
+                return True
+            else:
+                print("Invalid move between tableau piles.")
+                return False
+
+        elif isinstance(source, Game_queue) and isinstance(destination, FinalPile):
+            card_to_move = source.dequeue()
+            if card_to_move and destination.can_stack(card_to_move):
+                destination.push(card_to_move)
+                self.turns += 1
+                self.save.save_state()
+                return True
+            else:
+                if card_to_move:
+                    source.enqueue(card_to_move)
+                print("Invalid move from tableau to foundation.")
+                return False
+
+        elif isinstance(source, FinalPile) and isinstance(destination, Game_queue):
+            card_to_move = source.pop()
+            if card_to_move and destination.can_stack(card_to_move):
+                destination.enqueue(card_to_move)
+                self.turns += 1
+                self.save.save_state()
+                return True
+            else:
+                if card_to_move:
+                    source.push(card_to_move)
+                print("Invalid move from foundation to tableau.")
+                return False
+
+        return False
+
+    def undo_move(self):
+        """Undo the last move."""
+        self.save.undo()
+        self.turns += 1
