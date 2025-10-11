@@ -2,6 +2,7 @@ from tkinter import Tk, Label
 from PIL import Image, ImageTk
 import random
 from collections import deque
+from copy import deepcopy
 
 # cards defini
 family = ("pique", "trefle", "carreau", "coeur")
@@ -224,14 +225,15 @@ class Game:
         self.discard_pile = DiscardPile()
         self.final_piles = [FinalPile() for _ in range(4)]
         self.grid = Grid()
-
+    
+    
 class Save:
     def __init__(self, game: Game):
         self.game_state = [game.stock, game.discard_pile, game.final_piles, game.grid]
         self.history = []
     
     def save_state(self):
-        self.history.append(self.game_state)
+        self.history.append(deepcopy(self.game_state))
     
     def undo(self):
         if self.history:
@@ -239,3 +241,61 @@ class Save:
         else:
             print("No more undos available.")
     
+class GameController(Game):
+    def __init__(self):
+        super().__init__()
+        self.save = Save(self)
+        self.turns = 0
+    
+    def draw_from_stock(self):
+        drawn_cards = self.stock.draw()
+        if drawn_cards:
+            for card in drawn_cards:
+                self.discard_pile.push(card)
+                self.turns += 1
+                self.save.save_state()
+        else:
+            print("Stock is empty.")
+        
+        
+    def move_card(self, source, destination, card ,index=0):
+        if source == "discard":
+            card_to_move = self.discard_pile.pop()
+            if card_to_move and destination.can_stack(card_to_move):
+                destination.stack(card_to_move)
+                self.turns += 1
+            else:
+                print("Invalid move from discard pile.")
+                return
+        elif isinstance(source, Game_queue):
+            if isinstance(destination, Game_queue):
+                if source.can_stack(card):
+                    source.move(index, destination)
+                    self.turns += 1
+            elif isinstance(destination, FinalPile):
+                card_to_move = source.pop()
+                if card_to_move and destination.can_stack(card_to_move):
+                    destination.stack(card_to_move)
+                    self.save.save_state()
+                    self.turns += 1
+            else:
+                print("Invalid move from grid pile.")
+                return
+        elif isinstance(source, FinalPile):
+            if isinstance(destination, Game_queue):
+                card_to_move = source.pop()
+                if card_to_move and destination.can_stack(card_to_move):
+                    destination.enqueue(card_to_move)
+                    self.turns += 1
+                else:
+                    print("Invalid move from final pile to grid.")
+                    return
+            elif isinstance(destination, FinalPile):
+                card_to_move = source.pop()
+                if card_to_move and destination.can_stack(card_to_move):
+                    destination.stack(card_to_move)
+                    self.turns += 1
+                else:
+                    print("Invalid move from final pile to final pile.")
+                    return
+        self.save.save_state()
