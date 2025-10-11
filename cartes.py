@@ -63,7 +63,7 @@ class Queue:
 
 
 class Card:
-    def __init__(self, c, h):
+    def __init__(self, c: str, h: str):
         self.family = c
         self.value = h
         self.face = False
@@ -92,6 +92,7 @@ class Stock(Stack):
             self.deck[h1], self.deck[h2] = self.deck[h2], self.deck[h1]
 
     def draw(self):  # depile
+        """Draw up to three cards from the stock."""
         t = self.deck.size()
         res = []
         if t >= 3:
@@ -150,6 +151,7 @@ class FinalPile(Stock):
         self.deck = []  # start with an empty deck
 
     def can_stack(self, elem: Card):
+        """Check if a card can be placed on this final pile."""
         if len(self.deck) == 0:
             return elem.value == "as"
         else:
@@ -162,6 +164,7 @@ class FinalPile(Stock):
                 return False
 
     def stack(self, elem: Card):
+        """Place a card on this final pile if the move is valid."""
         if self.can_stack(elem):
             self.deck.stack(elem)
             return True
@@ -177,6 +180,7 @@ class Game_queue(Queue):
             self.deck.enqueue(Stock().draw())
 
     def can_stack(self, elem: Card):
+        """Check if a card can be placed on this tableau pile."""
         if self.deck.size() == 0:
             return elem.value == "roi"
         else:
@@ -212,42 +216,49 @@ class Game_queue(Queue):
         else:
             for elem in queue.items:
                 self.deck.enqueue(elem)
-        
+
 
 class Grid(Game_queue):
+    """Represents the seven tableau piles in Solitaire."""
     def __init__(self):
         self.piles = [Game_queue(i) for i in range(1, 8)]
 
+
 class Game:
+    """Represents the overall game state."""
     def __init__(self):
         self.stock = Stock()
         self.stock.shuffle()
         self.discard_pile = DiscardPile()
         self.final_piles = [FinalPile() for _ in range(4)]
         self.grid = Grid()
-    
-    
+
+
 class Save:
+    """Handles saving and undoing game states."""
     def __init__(self, game: Game):
         self.game_state = [game.stock, game.discard_pile, game.final_piles, game.grid]
         self.history = []
-    
+
     def save_state(self):
         self.history.append(deepcopy(self.game_state))
-    
+
     def undo(self):
         if self.history:
             self.game_state = self.history.pop()
         else:
             print("No more undos available.")
-    
+
+
 class GameController(Game):
+    """Manages game state, player actions, and saving/loading."""
     def __init__(self):
         super().__init__()
         self.save = Save(self)
         self.turns = 0
-    
+
     def draw_from_stock(self):
+        """Draw up to three cards from the stock to the discard pile."""
         drawn_cards = self.stock.draw()
         if drawn_cards:
             for card in drawn_cards:
@@ -256,9 +267,9 @@ class GameController(Game):
                 self.save.save_state()
         else:
             print("Stock is empty.")
-        
-        
-    def move_card(self, source, destination, card ,index=0):
+
+    def move_card(self, source, destination, card, index=0):
+        """Move a card from source to destination if the move is valid."""
         if source == "discard":
             card_to_move = self.discard_pile.pop()
             if card_to_move and destination.can_stack(card_to_move):
