@@ -1,6 +1,6 @@
 import tkinter as tk
 from PIL import Image, ImageTk
-from cartes import GameController
+from game import GameController
 
 
 class SolitaireApp:
