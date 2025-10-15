@@ -77,7 +77,10 @@ class DiscardPile(Stack):
 
     def top(self):
         """Returns the top card of the discard pile without removing it."""
+        if self.is_empty:
+            return None
         return self.peek()
+    
 
     def visible(self):
         """Returns up to three cards from the top of the discard pile without removing them."""
