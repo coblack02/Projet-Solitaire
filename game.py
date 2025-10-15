@@ -61,8 +61,11 @@ class GameController(Game):
                 self.discard_pile.push(card)
             self.turns += 1
             self.save.save_state()
-        else:
-            print("Stock is empty.")
+        else :
+            while self.discard_pile.is_empty()==False:
+                self.stock.push(self.discard_pile.pop())
+            self.turns += 1
+            self.save.save_state()
 
     def move_from_discard(self, destination):
         """Move top card from discard pile to destination."""
