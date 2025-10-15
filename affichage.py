@@ -31,7 +31,7 @@ class SolitaireApp:
         self.image_refs = []
 
         # Bind clic sur le stock
-        self.canvas.tag_bind("stock", "<Button-1>", self.draw_from_stock)
+        self.canvas.tag_bind("stock", "<Button-1>", self.draw_card)
 
         # Premier affichage
         self.draw_game()
@@ -63,7 +63,6 @@ class SolitaireApp:
 
         # Pioche (stock)
         if not self.game.stock.is_empty():
-                
                 stock_img = Image.open("cartes/dos_de_carte.webp").resize((100, 150))
                 stock_photo = ImageTk.PhotoImage(stock_img)
                 self.image_refs.append(stock_photo)
@@ -77,8 +76,8 @@ class SolitaireApp:
             # Stock vide
             self.canvas.create_rectangle(
                 self.position_pioche[0], self.position_pioche[1],
-                self.position_pioche[0] + 100, self.position_pioche[1] + 150,
-                outline="white", width=2, dash=(5, 5)
+                self.position_pioche[0] + 100, self.position_pioche[1] + 150,fill='darkgreen',
+                outline="white", width=2, dash=(5, 5), tags="stock"
             )
             self.canvas.create_text(
                 self.position_pioche[0] + 50, self.position_pioche[1] + 75,
@@ -160,11 +159,11 @@ class SolitaireApp:
             fill="white", font=("Arial", 16, "bold")
         )
 
-    def draw_from_stock(self, event=None):
+    def draw_card(self, event=None):
 
         """Quand on clique sur le paquet, tirer 3 cartes."""
 
-        self.game.draw_from_stock()
+        self.game.draw_from_stock() #draw_from_stock de game.py
         self.draw_game()
        
 
