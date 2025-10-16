@@ -83,10 +83,30 @@ class Game_queue(Queue):
             while not temp.is_empty():
                 self.enqueue(temp.pop())
             return False
+        
+    def __repr__(self):
+        return f"GameQueue({list(self.items)})"
 
+
+class GameStack(Stack):
+    def __init__(self, stock,lenght):
+        super().__init__()
+        for _ in range(lenght):
+            card=stock.pop()
+            if card:
+                self.push(card)
+
+    def __repr__(self):
+        return f"GameStack({self.items})"
+
+        
 
 class Grid:
     """Represents the seven tableau piles in Solitaire."""
-
+    
     def __init__(self, stock):
-        self.piles = [Game_queue(stock, i) for i in range(1, 8)]
+        self.queue=[Game_queue(stock, i) for i in range(0, 7)]
+        self.stack =[GameStack(stock,1) for _ in range(7)]
+        self.game=[[self.queue[i],self.stack[i]] for i in range (7)]
+    def __str__(self) -> str:
+        return f"GameStack({self.game})"
