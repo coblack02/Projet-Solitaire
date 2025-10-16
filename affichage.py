@@ -179,15 +179,15 @@ class SolitaireApp:
                 )
 
         # Tableau piles (7 columns)
-        for i, pile in enumerate(self.game.grid.piles):
+        for elem in self.game.grid.game:
+            elem_file=elem[0]
+            elem_pile=elem[1]
+
             x = 100 + i * self.column_spacing
             y = self.tableau_start_y
             offset = 30
-            # IMPORTANT: Queue stores with appendleft, so items[0] = last card
-            # We must reverse to display from bottom to top
-            pile_cards = list(reversed(pile.items))
 
-            if len(pile_cards) == 0:
+            if elem_file.size == 0 and elem_pile.size == 0 :
                 # Empty pile - clickable zone to place a King
                 self.canvas.create_rectangle(
                     x, y, x + 100, y + 150, outline="white", width=2, dash=(5, 5)
@@ -202,11 +202,38 @@ class SolitaireApp:
                     "card_index": None,
                     "is_empty": True,
                 }
+
             else:
-                for j, card in enumerate(pile_cards):
+                for j, card in enumerate(elem_pile.items):
                     # Only the last card is visible
-                    is_last = j == len(pile_cards) - 1
-                    card.face = is_last
+                    card.face = False
+                    is_last = j==elem_file.size
+                    img = self.load_card_image(card)
+
+                    if img:
+                        card_y = y + j * offset
+                        self.canvas.create_image(
+                            x, card_y, image=img, anchor="nw", tags=f"tableau_{i}_{j}"
+                        )
+
+                        # Middle card: only visible part (offset)
+                        clickable_height = offset
+
+                        self.card_zones[f"tableau_{i}_{j}"] = {
+                            "x1": x,
+                            "y1": card_y,
+                            "x2": x + 100,
+                            "y2": card_y + clickable_height,
+                            "type": "tableau",
+                            "pile_index": i,
+                            "card_index": j,
+                            "is_last": is_last,
+                        }
+
+                for j, card in enumerate(elem_file.items):
+                    # Only the last card is visible
+                    card.face = True
+                    is_last = j==elem_file.size
                     img = self.load_card_image(card)
 
                     if img:
@@ -233,6 +260,7 @@ class SolitaireApp:
                             "card_index": j,
                             "is_last": is_last,
                         }
+
 
         # Display number of moves
         self.canvas.create_text(
@@ -297,7 +325,7 @@ class SolitaireApp:
             else:
                 print(f"Card {card_idx} of pile {pile_idx} (partially visible)")
                 # Calculate how many cards from this one to the end
-                pile = self.game.grid.piles[pile_idx]
+                pile = self.game.grid.game[pile_idx]
                 num_cards = len(list(pile.items)) - card_idx
                 print(f"  -> Can move {num_cards} card(s)")
 
