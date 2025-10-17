@@ -61,11 +61,19 @@ class GameController(Game):
                 self.discard_pile.push(card)
             self.turns += 1
             self.save.save_state()
+            try:
+                self.grid.normalize()
+            except Exception:
+                pass
         else :
             while self.discard_pile.is_empty()==False:
                 self.stock.push(self.discard_pile.pop())
             self.turns += 1
             self.save.save_state()
+            try:
+                self.grid.normalize()
+            except Exception:
+                pass
 
     def move_from_discard(self, destination):
         """Move top card from discard pile to destination."""
@@ -76,6 +84,10 @@ class GameController(Game):
                     destination.push(card_to_move)
                     self.turns += 1
                     self.save.save_state()
+                    try:
+                        self.grid.normalize()
+                    except Exception:
+                        pass
                     return True
                 else:
                     self.discard_pile.push(card_to_move)
@@ -86,6 +98,10 @@ class GameController(Game):
                     destination.enqueue(card_to_move)
                     self.turns += 1
                     self.save.save_state()
+                    try:
+                        self.grid.normalize()
+                    except Exception:
+                        pass
                     return True
                 else:
                     self.discard_pile.push(card_to_move)
@@ -99,6 +115,10 @@ class GameController(Game):
             if source.move(num_cards, destination):
                 self.turns += 1
                 self.save.save_state()
+                try:
+                    self.grid.normalize()
+                except Exception:
+                    pass
                 return True
             else:
                 print("Invalid move between tableau piles.")
@@ -110,6 +130,10 @@ class GameController(Game):
                 destination.push(card_to_move)
                 self.turns += 1
                 self.save.save_state()
+                try:
+                    self.grid.normalize()
+                except Exception:
+                    pass
                 return True
             else:
                 if card_to_move:
@@ -123,6 +147,10 @@ class GameController(Game):
                 destination.enqueue(card_to_move)
                 self.turns += 1
                 self.save.save_state()
+                try:
+                    self.grid.normalize()
+                except Exception:
+                    pass
                 return True
             else:
                 if card_to_move:
@@ -136,3 +164,7 @@ class GameController(Game):
         """Undo the last move."""
         self.save.undo()
         self.turns += 1
+        try:
+            self.grid.normalize()
+        except Exception:
+            pass
