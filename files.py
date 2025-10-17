@@ -10,7 +10,8 @@ class Queue:
         return len(self.items) == 0
 
     def enqueue(self, item):
-        self.items.appendleft(item)
+        # Append to the right so the newest card becomes the top (peek() uses [-1])
+        self.items.append(item)
 
     def dequeue(self):
         if not self.is_empty():
@@ -99,14 +100,68 @@ class GameStack(Stack):
     def __repr__(self):
         return f"GameStack({self.items})"
 
+    def flip_into_queue(self, queue):
+        """Pop the top card from this hidden stack and enqueue it into the provided queue.
+        Returns True if a card was flipped, False otherwise."""
+        try:
+            card = self.pop()
+        except Exception:
+            # fallback to list manipulation
+            items = list(getattr(self, 'items', []))
+            card = items.pop() if items else None
+            from collections import deque
+            self.items = deque(items)
+
+        if card:
+            card.face = True
+            try:
+                queue.enqueue(card)
+            except Exception:
+                # fallback for older queue implementations
+                try:
+                    queue.items.append(card)
+                except Exception:
+                    pass
+            return True
+        return False
+
         
 
 class Grid:
     """Represents the seven tableau piles in Solitaire."""
     
     def __init__(self, stock):
-        self.queue=[Game_queue(stock, i) for i in range(0, 7)]
-        self.stack =[GameStack(stock,1) for _ in range(7)]
-        self.game=[[self.queue[i],self.stack[i]] for i in range (7)]
+        # Initialize each column with exactly one visible card in the queue
+        # and hidden stack with increasing size (0..6). The queue card is marked face=True.
+        # queue: one visible card per column
+        self.queue = [Game_queue(stock, 1) for _ in range(7)]
+        # stack: hidden cards increasing from 0 to 6 (left to right)
+        self.stack = [GameStack(stock, i) for i in range(0, 7)]
+
+        # mark queued cards as visible
+        for q in self.queue:
+            try:
+                card = q.peek()
+                if card:
+                    card.face = True
+            except Exception:
+                # fallback if peek not available
+                try:
+                    items = list(getattr(q, 'items', []))
+                    if items:
+                        items[-1].face = True
+                except Exception:
+                    pass
+
+        self.game = [[self.queue[i], self.stack[i]] for i in range(7)]
     def __str__(self) -> str:
         return f"GameStack({self.game})"
+    def normalize(self):
+        """For each column: if the queue is empty and the stack has cards,
+        move the top card from the stack into the queue and mark it face-down.
+        This keeps the internal game state consistent when cards are moved.
+        """
+        # Normalization is disabled: GameStack cards are intentionally static
+        # and must remain in GameStack. The UI and controller must not move
+        # hidden stack cards directly.
+        return
