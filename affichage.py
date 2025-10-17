@@ -34,15 +34,17 @@ class SolitaireApp:
         # Selection system
         self.selected_card = None  # (pile_index, card_index, pile_type)
         self.selected_cards_count = 0  # Number of selected cards
+        self.selected_zone = None  # (zone_id, zone) stored on mouse press for drag/drop
 
         # Dictionary to store clickable zones for each card
         self.card_zones = {}
 
-        # Bind mouse events
-        self.canvas.bind("<Button-1>", self.on_mouse_click)
+        # Bind mouse events: press/release for drag-drop
+        self.canvas.bind("<ButtonPress-1>", self.on_mouse_press)
+        self.canvas.bind("<ButtonRelease-1>", self.on_mouse_release)
 
         # First display
-        self.draw_game()
+        self._redraw()
 
     def load_card_image(self, card):
         """Load a card image (or back if face down)."""
@@ -58,6 +60,10 @@ class SolitaireApp:
 
     def draw_game(self):
         """Update the entire graphical display of the game."""
+        # Normalize columns: if a queue is empty but its stack has cards,
+        # move the top card from the stack back into the queue (face-down).
+        self._normalize_columns()
+
         self.canvas.delete("all")
         self.image_refs.clear()
         self.card_zones.clear()  # Reset clickable zones
@@ -174,20 +180,42 @@ class SolitaireApp:
                         "index": i,
                     }
             else:
-                self.canvas.create_rectangle(
-                    x, 100, x + 100, 250, outline="white", width=2
-                )
+                    self.canvas.create_rectangle(
+                        x, 100, x + 100, 250, outline="white", width=2
+                    )
+                    # Clickable zone for empty foundation pile so we can drop Aces there
+                    self.card_zones[f"final_{i}"] = {
+                        "x1": x,
+                        "y1": 100,
+                        "x2": x + 100,
+                        "y2": 250,
+                        "type": "final",
+                        "index": i,
+                        "is_empty": True,
+                    }
 
         # Tableau piles (7 columns)
-        for elem in self.game.grid.game:
-            elem_file=elem[0]
-            elem_pile=elem[1]
+        for i, elem in enumerate(self.game.grid.game):
+            # elem is [Game_queue (face-down), GameStack (face-up)]
+            queue = elem[0]
+            stack = elem[1]
 
             x = 100 + i * self.column_spacing
             y = self.tableau_start_y
             offset = 30
 
-            if elem_file.size == 0 and elem_pile.size == 0 :
+            # Support both size() method and direct len access
+            try:
+                n_queue = queue.size()
+            except Exception:
+                n_queue = len(list(queue.items))
+
+            try:
+                n_stack = stack.size()
+            except Exception:
+                n_stack = len(list(stack.items))
+
+            if n_queue == 0 and n_stack == 0:
                 # Empty pile - clickable zone to place a King
                 self.canvas.create_rectangle(
                     x, y, x + 100, y + 150, outline="white", width=2, dash=(5, 5)
@@ -204,62 +232,56 @@ class SolitaireApp:
                 }
 
             else:
-                for j, card in enumerate(elem_pile.items):
-                    # Only the last card is visible
+                # Draw face-down cards (stack) first
+                for j, card in enumerate(list(stack.items)):
+                    # stack cards are face-down
                     card.face = False
-                    is_last = j==elem_file.size
                     img = self.load_card_image(card)
-
+                    card_y = y + j * offset
                     if img:
-                        card_y = y + j * offset
                         self.canvas.create_image(
-                            x, card_y, image=img, anchor="nw", tags=f"tableau_{i}_{j}"
+                            x, card_y, image=img, anchor="nw", tags=f"tableau_{i}_s_{j}"
                         )
 
-                        # Middle card: only visible part (offset)
-                        clickable_height = offset
+                    # Only the topmost stack card might be interactive (to flip)
+                    is_top_stack = (j == n_stack - 1)
+                    clickable_height = 150 if is_top_stack and n_queue == 0 else offset
+                    self.card_zones[f"tableau_{i}_s_{j}"] = {
+                        "x1": x,
+                        "y1": card_y,
+                        "x2": x + 100,
+                        "y2": card_y + clickable_height,
+                        "type": "tableau",
+                        "pile_index": i,
+                        "card_index": j,
+                        "is_stack": True,
+                        "is_top_stack": is_top_stack,
+                    }
 
-                        self.card_zones[f"tableau_{i}_{j}"] = {
-                            "x1": x,
-                            "y1": card_y,
-                            "x2": x + 100,
-                            "y2": card_y + clickable_height,
-                            "type": "tableau",
-                            "pile_index": i,
-                            "card_index": j,
-                            "is_last": is_last,
-                        }
-
-                for j, card in enumerate(elem_file.items):
-                    # Only the last card is visible
+                # Draw face-up cards (queue)
+                for j, card in enumerate(list(queue.items)):
                     card.face = True
-                    is_last = j==elem_file.size
                     img = self.load_card_image(card)
-
+                    card_y = y + (n_stack + j) * offset
                     if img:
-                        card_y = y + j * offset
                         self.canvas.create_image(
-                            x, card_y, image=img, anchor="nw", tags=f"tableau_{i}_{j}"
+                            x, card_y, image=img, anchor="nw", tags=f"tableau_{i}_q_{j}"
                         )
 
-                        # Determine clickable zone
-                        if is_last:
-                            # Last card: full zone (100x150)
-                            clickable_height = 150
-                        else:
-                            # Middle card: only visible part (offset)
-                            clickable_height = offset
-
-                        self.card_zones[f"tableau_{i}_{j}"] = {
-                            "x1": x,
-                            "y1": card_y,
-                            "x2": x + 100,
-                            "y2": card_y + clickable_height,
-                            "type": "tableau",
-                            "pile_index": i,
-                            "card_index": j,
-                            "is_last": is_last,
-                        }
+                    is_last = (j == n_queue - 1)
+                    clickable_height = 150 if is_last else offset
+                    # card_index refers to index within queue (visible cards)
+                    self.card_zones[f"tableau_{i}_q_{j}"] = {
+                        "x1": x,
+                        "y1": card_y,
+                        "x2": x + 100,
+                        "y2": card_y + clickable_height,
+                        "type": "tableau",
+                        "pile_index": i,
+                        "card_index": j,
+                        "is_stack": False,
+                        "is_last": is_last,
+                    }
 
 
         # Display number of moves
@@ -290,6 +312,208 @@ class SolitaireApp:
 
         return None, None
 
+    # Helper methods to access pile structure
+    def _pile_objects(self, pile_index):
+        """Return (queue, stack) for a tableau pile index."""
+        elem = self.game.grid.game[pile_index]
+        return elem[0], elem[1]
+
+    def _pile_top_card(self, pile_index):
+        """Return the top visible card of a pile or None."""
+        queue, stack = self._pile_objects(pile_index)
+        # stack is face-up; if it has items its top is visible
+        try:
+            if stack.size() > 0:
+                return stack.peek()
+        except Exception:
+            if len(list(stack.items)) > 0:
+                return list(stack.items)[-1]
+
+        # otherwise, the top of queue (face-down) is not visible until flipped
+        try:
+            return queue.peek()
+        except Exception:
+            items = list(queue.items)
+            return items[-1] if items else None
+
+    def _rank(self, card):
+        """Return numeric rank for comparison using piles.height from piles module."""
+        try:
+            from piles import height
+
+            return height.index(card.value)
+        except Exception:
+            # fallback mapping
+            order = ["as", "2", "3", "4", "5", "6", "7", "8", "9", "10", "valet", "dame", "roi"]
+            return order.index(card.value)
+
+    def _normalize_columns(self):
+        """Ensure that for each tableau column, if the queue is empty and the stack has cards,
+        move the top card from the stack into the queue (and mark it face-down)."""
+        for i, elem in enumerate(self.game.grid.game):
+            queue, stack = elem[0], elem[1]
+            try:
+                q_size = queue.size()
+            except Exception:
+                q_size = len(list(getattr(queue, 'items', [])))
+            try:
+                s_size = stack.size()
+            except Exception:
+                s_size = len(list(getattr(stack, 'items', [])))
+
+            if q_size == 0 and s_size > 0:
+                # Hidden stack cards are static and must not be moved into the queue by the view.
+                # Do not flip or transfer any card here.
+                pass
+    def _redraw(self):
+        """Normalize columns and redraw the GUI."""
+        try:
+            self._normalize_columns()
+        except Exception:
+            pass
+        try:
+            self.draw_game()
+        except Exception:
+            pass
+
+    def on_mouse_press(self, event):
+        """Store the zone where the mouse press occurred (start of potential move)."""
+        x, y = event.x, event.y
+        zone_id, zone = self.get_clicked_card(x, y)
+        self.selected_zone = (zone_id, zone)
+        if zone_id:
+            print(f"Press at ({x},{y}) -> {zone_id}")
+
+    def on_mouse_release(self, event):
+        """On release, try to move selected cards from start zone to release zone."""
+        x, y = event.x, event.y
+        start_zone_id, start_zone = self.selected_zone if self.selected_zone else (None, None)
+        end_zone_id, end_zone = self.get_clicked_card(x, y)
+
+        # Clear selection
+        self.selected_zone = None
+
+        # If no start zone (press not captured), fall back to using end zone as start
+        if not start_zone:
+            start_zone_id, start_zone = end_zone_id, end_zone
+
+        # If release happened on the stock, perform draw (pioche)
+        if end_zone and end_zone.get("type") == "stock":
+            self.game.draw_from_stock()
+            try:
+                self.draw_game()
+            except Exception:
+                pass
+            self.selected_zone = None
+            return
+
+        if not start_zone or not end_zone:
+            print(f"Release at ({x},{y}) - no valid start or end zone")
+            return
+
+        print(f"Release at ({x},{y}) - start: {start_zone_id}, end: {end_zone_id}")
+
+        # Handle moves from discard
+        if start_zone.get("type") == "discard":
+            # Only allow moving the last discard card
+            if not start_zone.get("is_last", False):
+                print("Can't move a non-last discard card")
+                return
+
+            # Determine destination
+            if end_zone.get("type") == "final":
+                dest = self.game.final_piles[end_zone["index"]]
+                success = self.game.move_from_discard(dest)
+                if success:
+                    self._redraw()
+                return
+
+            if end_zone.get("type") == "tableau":
+                dest_idx = end_zone["pile_index"]
+                dest_queue = self.game.grid.game[dest_idx][0]
+                success = self.game.move_from_discard(dest_queue)
+                if success:
+                    self._redraw()
+                return
+
+        # Handle moves between tableau piles
+        if start_zone.get("type") == "tableau" and end_zone.get("type") == "tableau":
+            src_idx = start_zone["pile_index"]
+            dst_idx = end_zone["pile_index"]
+            if src_idx == dst_idx:
+                print("Released on same pile - no move")
+                return
+            # Determine how many cards to move based on start zone
+            src_queue, src_stack = self._pile_objects(src_idx)
+            dst_queue, dst_stack = self._pile_objects(dst_idx)
+            try:
+                n_queue = src_queue.size()
+            except Exception:
+                n_queue = len(list(getattr(src_queue, 'items', [])))
+            try:
+                n_stack = src_stack.size()
+            except Exception:
+                n_stack = len(list(getattr(src_stack, 'items', [])))
+
+            # Do not allow moving hidden stack cards; only allow flips from stack
+            # (some stack zones may be mis-flagged, so also check zone id contains '_s_')
+            if start_zone.get("is_stack", False) or (start_zone_id and "_s_" in start_zone_id):
+                # UI flips are disabled: GameStack cards must remain static in-place.
+                print("Hidden stack cards cannot be moved or flipped via the UI.")
+                return
+
+            # Otherwise clicked on visible queue area: move num cards from src_queue to dst_queue
+            # Ensure the start zone is a visible queue zone (has a card_index and is not a stack)
+            clicked_card_index = start_zone.get("card_index")
+            if start_zone_id and "_s_" in start_zone_id:
+                print("Cannot start a move from a hidden stack zone. Flip the card first.")
+                return
+            if clicked_card_index is None:
+                print("No card index on start zone")
+                return
+
+            num_to_move = n_queue - clicked_card_index
+            if num_to_move <= 0:
+                print("Nothing to move")
+                return
+
+            # Use controller to perform move (handles validation and save)
+            success = self.game.move_card(src_queue, dst_queue, num_to_move)
+            if success:
+                self._redraw()
+            else:
+                print("Invalid move between tableaus")
+            return
+
+        # Handle moves to foundation
+        if start_zone.get("type") == "tableau" and end_zone.get("type") == "final":
+            src_idx = start_zone["pile_index"]
+            fpile = self.game.final_piles[end_zone["index"]]
+            src_queue, src_stack = self._pile_objects(src_idx)
+
+            # Do not allow moving hidden stack cards directly to foundation
+            if start_zone.get("is_stack", False):
+                print("Cannot move a hidden card to foundation. Flip it first.")
+                return
+
+            # Ensure there's at least one visible card in the queue
+            try:
+                q_size = src_queue.size()
+            except Exception:
+                q_size = len(list(getattr(src_queue, 'items', [])))
+
+            if q_size <= 0:
+                print("No visible card to move to foundation.")
+                return
+
+            # Use controller which handles validation, saving and normalization
+            success = self.game.move_card(src_queue, fpile, 1)
+            if success:
+                self._redraw()
+            else:
+                print("Invalid move to foundation")
+            return
+
     def on_mouse_click(self, event):
         """Handle mouse clicks."""
         x, y = event.x, event.y
@@ -302,6 +526,9 @@ class SolitaireApp:
             return
 
         print(f"Click at ({x}, {y}) - Zone: {zone_id}, Type: {zone['type']}")
+
+        # Remember this zone as potential drag start in case press wasn't captured
+        self.selected_zone = (zone_id, zone)
 
         # Handle click based on zone type
         if zone["type"] == "stock":
@@ -324,10 +551,36 @@ class SolitaireApp:
                 # Selection/movement logic
             else:
                 print(f"Card {card_idx} of pile {pile_idx} (partially visible)")
-                # Calculate how many cards from this one to the end
+                # The grid.game structure stores for each column: [Game_queue (face-down), GameStack (face-up)]
                 pile = self.game.grid.game[pile_idx]
-                num_cards = len(list(pile.items)) - card_idx
-                print(f"  -> Can move {num_cards} card(s)")
+                queue = pile[0]
+                stack = pile[1]
+
+                # Determine sizes (support both .size() methods and direct access)
+                try:
+                    n_queue = queue.size()
+                except Exception:
+                    n_queue = len(list(getattr(queue, 'items', [])))
+
+                try:
+                    n_stack = stack.size()
+                except Exception:
+                    n_stack = len(list(getattr(stack, 'items', [])))
+
+                # If clicked area is the hidden stack -> attempt flip
+                if zone.get('is_stack', False):
+                    # Do not allow any UI-driven flips or moves from the hidden stack
+                    print("Hidden stack cards cannot be flipped or moved via the UI.")
+                    return
+
+                else:
+                    # Clicked in visible queue area: compute movable count
+                    if card_idx is None:
+                        print("No card index available")
+                        return
+
+                    num_cards = n_queue - card_idx
+                    print(f"  -> Can move {num_cards} card(s)")
 
         elif zone["type"] == "final":
             print(f"Foundation pile {zone['index']} clicked")
