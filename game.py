@@ -1,8 +1,6 @@
-
 from copy import deepcopy
-from piles import Stock,DiscardPile,FinalPile
-from files import Grid,Game_queue
-
+from piles import Stock, DiscardPile, FinalPile
+from files import Grid, Game_queue
 
 
 class Game:
@@ -53,41 +51,63 @@ class GameController(Game):
         self.save = Save(self)
         self.turns = 0
 
+    def recycle_discard_to_stock(self):
+        """Remet toutes les cartes de la défausse dans le stock."""
+        while not self.discard_pile.is_empty():
+            card = self.discard_pile.pop()
+            if card:
+                self.stock.push(card)
+
     def draw_from_stock(self):
         """Draw up to three cards from the stock to the discard pile."""
+        # Si le stock est vide, recycler la défausse
+        if self.stock.is_empty():
+            if not self.discard_pile.is_empty():
+                self.recycle_discard_to_stock()
+                self.turns += 1
+                self.save.save_state()
+                self._normalize_grid()
+                return
+            else:
+                print("Stock and discard pile are both empty.")
+                return
+        
+        # Tirer normalement 3 cartes
         drawn_cards = self.stock.draw()
         if drawn_cards:
             for card in drawn_cards:
                 self.discard_pile.push(card)
             self.turns += 1
             self.save.save_state()
-            try:
+            self._normalize_grid()
+
+    def _normalize_grid(self):
+        """Normalise la grille si la méthode existe."""
+        try:
+            if hasattr(self.grid, 'normalize'):
                 self.grid.normalize()
-            except Exception:
-                pass
-        else :
-            while self.discard_pile.is_empty()==False:
-                self.stock.push(self.discard_pile.pop())
-            self.turns += 1
-            self.save.save_state()
-            try:
-                self.grid.normalize()
-            except Exception:
-                pass
+        except Exception as e:
+            print(f"Warning: normalize failed - {e}")
 
     def move_from_discard(self, destination):
         """Move top card from discard pile to destination."""
         card_to_move = self.discard_pile.pop()
+        dest_pile_index = None
+        
+        # Identifier l'index si la destination est dans le tableau
+        if isinstance(destination, Game_queue):
+            for i, elem in enumerate(self.grid.game):
+                if elem[0] == destination:
+                    dest_pile_index = i
+                    break
+        
         if card_to_move:
             if isinstance(destination, FinalPile):
                 if destination.can_stack(card_to_move):
                     destination.push(card_to_move)
                     self.turns += 1
                     self.save.save_state()
-                    try:
-                        self.grid.normalize()
-                    except Exception:
-                        pass
+                    self._normalize_grid()
                     return True
                 else:
                     self.discard_pile.push(card_to_move)
@@ -98,10 +118,7 @@ class GameController(Game):
                     destination.enqueue(card_to_move)
                     self.turns += 1
                     self.save.save_state()
-                    try:
-                        self.grid.normalize()
-                    except Exception:
-                        pass
+                    self._normalize_grid()
                     return True
                 else:
                     self.discard_pile.push(card_to_move)
@@ -109,16 +126,44 @@ class GameController(Game):
                     return False
         return False
 
+    def _reveal_top_card(self, pile_index):
+        """Révèle la carte du dessus d'une pile du tableau après un déplacement."""
+        try:
+            elem = self.grid.game[pile_index]
+            queue = elem[0]  # Cartes visibles
+            stack = elem[1]  # Cartes cachées
+            
+            # Si la queue est vide et le stack a des cartes
+            if queue.is_empty() and not stack.is_empty():
+                # Prendre la carte du dessus du stack
+                card = stack.pop()
+                if card:
+                    # La retourner face visible
+                    card.face = True
+                    # La mettre dans la queue
+                    queue.enqueue(card)
+                    print(f"Carte révélée sur la pile {pile_index}: {card.value} de {card.family}")
+        except Exception as e:
+            print(f"Erreur lors de la révélation de carte: {e}")
+
     def move_card(self, source, destination, num_cards=1):
         """Move card(s) from source to destination if the move is valid."""
+        source_pile_index = None
+        
+        # Identifier l'index de la pile source dans le tableau
+        for i, elem in enumerate(self.grid.game):
+            if elem[0] == source:  # elem[0] est la queue
+                source_pile_index = i
+                break
+        
         if isinstance(source, Game_queue) and isinstance(destination, Game_queue):
             if source.move(num_cards, destination):
                 self.turns += 1
+                # Révéler la carte derrière si nécessaire
+                if source_pile_index is not None:
+                    self._reveal_top_card(source_pile_index)
                 self.save.save_state()
-                try:
-                    self.grid.normalize()
-                except Exception:
-                    pass
+                self._normalize_grid()
                 return True
             else:
                 print("Invalid move between tableau piles.")
@@ -129,11 +174,11 @@ class GameController(Game):
             if card_to_move and destination.can_stack(card_to_move):
                 destination.push(card_to_move)
                 self.turns += 1
+                # Révéler la carte derrière si nécessaire
+                if source_pile_index is not None:
+                    self._reveal_top_card(source_pile_index)
                 self.save.save_state()
-                try:
-                    self.grid.normalize()
-                except Exception:
-                    pass
+                self._normalize_grid()
                 return True
             else:
                 if card_to_move:
@@ -147,10 +192,7 @@ class GameController(Game):
                 destination.enqueue(card_to_move)
                 self.turns += 1
                 self.save.save_state()
-                try:
-                    self.grid.normalize()
-                except Exception:
-                    pass
+                self._normalize_grid()
                 return True
             else:
                 if card_to_move:
@@ -164,7 +206,4 @@ class GameController(Game):
         """Undo the last move."""
         self.save.undo()
         self.turns += 1
-        try:
-            self.grid.normalize()
-        except Exception:
-            pass
+        self._normalize_grid()
