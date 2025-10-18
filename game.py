@@ -108,6 +108,8 @@ class GameController(Game):
                     self.turns += 1
                     self.save.save_state()
                     self._normalize_grid()
+                    # Vérifier si on peut auto-compléter
+                    self.check_and_auto_complete()
                     return True
                 else:
                     self.discard_pile.push(card_to_move)
@@ -143,6 +145,8 @@ class GameController(Game):
                     # La mettre dans la queue
                     queue.enqueue(card)
                     print(f"Carte révélée sur la pile {pile_index}: {card.value} de {card.family}")
+                    # Vérifier si on peut auto-compléter après révélation
+                    self.check_and_auto_complete()
         except Exception as e:
             print(f"Erreur lors de la révélation de carte: {e}")
 
@@ -179,6 +183,8 @@ class GameController(Game):
                     self._reveal_top_card(source_pile_index)
                 self.save.save_state()
                 self._normalize_grid()
+                # Vérifier si on peut auto-compléter
+                self.check_and_auto_complete()
                 return True
             else:
                 if card_to_move:
@@ -207,3 +213,92 @@ class GameController(Game):
         self.save.undo()
         self.turns += 1
         self._normalize_grid()
+
+    def all_tableau_cards_revealed(self):
+        """Vérifie si toutes les cartes du tableau sont retournées (face visible)."""
+        try:
+            for elem in self.grid.game:
+                stack = elem[1]  # Cartes cachées
+                # Si le stack a encore des cartes, toutes ne sont pas révélées
+                try:
+                    if not stack.is_empty():
+                        return False
+                except:
+                    if len(list(stack.items)) > 0:
+                        return False
+            return True
+        except Exception as e:
+            print(f"Erreur lors de la vérification: {e}")
+            return False
+
+    def can_move_to_foundation(self, card):
+        """Vérifie si une carte peut être placée sur une fondation."""
+        for foundation in self.final_piles:
+            if foundation.can_stack(card):
+                return foundation
+        return None
+
+    def auto_complete(self):
+        """Termine automatiquement le jeu en plaçant toutes les cartes sur les fondations."""
+        print("🎉 Auto-complétion activée !")
+        moves_made = True
+        
+        # Callback pour l'animation (sera défini par l'interface)
+        redraw_callback = getattr(self, '_redraw_callback', None)
+        
+        while moves_made:
+            moves_made = False
+            
+            # Essayer de déplacer depuis la défausse
+            if not self.discard_pile.is_empty():
+                top_card = self.discard_pile.peek()
+                foundation = self.can_move_to_foundation(top_card)
+                if foundation:
+                    card = self.discard_pile.pop()
+                    foundation.push(card)
+                    self.turns += 1
+                    moves_made = True
+                    # Redessiner pour voir l'animation
+                    if redraw_callback:
+                        redraw_callback()
+                        import time
+                        time.sleep(0.15)  # Pause de 150ms entre chaque carte
+                    continue
+            
+            # Essayer de déplacer depuis chaque pile du tableau
+            for i, elem in enumerate(self.grid.game):
+                queue = elem[0]
+                try:
+                    if not queue.is_empty():
+                        top_card = queue.peek()
+                        foundation = self.can_move_to_foundation(top_card)
+                        if foundation:
+                            card = queue.dequeue()
+                            foundation.push(card)
+                            self.turns += 1
+                            # Révéler la carte suivante si nécessaire
+                            stack = elem[1]
+                            if queue.is_empty() and not stack.is_empty():
+                                hidden_card = stack.pop()
+                                hidden_card.face = True
+                                queue.enqueue(hidden_card)
+                            moves_made = True
+                            # Redessiner pour voir l'animation
+                            if redraw_callback:
+                                redraw_callback()
+                                import time
+                                time.sleep(0.15)  # Pause de 150ms entre chaque carte
+                            break
+                except Exception as e:
+                    print(f"Erreur: {e}")
+                    pass
+        
+        print("✅ Auto-complétion terminée !")
+        return True
+
+    def check_and_auto_complete(self):
+        """Vérifie si toutes les cartes sont révélées et lance l'auto-complétion."""
+        if self.all_tableau_cards_revealed():
+            print("🎯 Toutes les cartes sont révélées ! Lancement de l'auto-complétion...")
+            return self.auto_complete()
+        return False
