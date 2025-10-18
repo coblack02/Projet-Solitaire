@@ -14,6 +14,9 @@ class SolitaireApp:
 
         # Game initialization
         self.game = GameController()
+        
+        # Connecter le callback pour l'animation de l'auto-complétion
+        self.game._redraw_callback = self._redraw
 
         # Main canvas
         self.canvas = tk.Canvas(
@@ -84,6 +87,8 @@ class SolitaireApp:
         if messagebox.askyesno("Nouvelle Partie", "Voulez-vous vraiment recommencer une nouvelle partie ?"):
             # Réinitialiser le jeu
             self.game = GameController()
+            # Reconnecter le callback
+            self.game._redraw_callback = self._redraw
             self.selected_card = None
             self.selected_cards_count = 0
             self.selected_zone = None
@@ -422,6 +427,9 @@ class SolitaireApp:
             self.draw_game()
         except Exception:
             pass
+        # Forcer la mise à jour de l'affichage
+        self.root.update_idletasks()
+        self.root.update()
 
     def on_mouse_press(self, event):
         """Store the zone where the mouse press occurred (start of potential move)."""
