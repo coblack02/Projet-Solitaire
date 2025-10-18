@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import messagebox
 from PIL import Image, ImageTk
 from game import GameController
 
@@ -19,6 +20,38 @@ class SolitaireApp:
             root, width=1200, height=800, bg="darkgreen", highlightthickness=0
         )
         self.canvas.pack()
+
+        # Buttons frame at the bottom left
+        self.button_frame = tk.Frame(root, bg="darkgreen")
+        self.button_frame.place(x=20, y=750)  # Position en bas à gauche
+
+        # Reset button
+        self.reset_button = tk.Button(
+            self.button_frame,
+            text="🔄 Nouvelle Partie",
+            font=("Arial", 11, "bold"),
+            bg="#2ecc71",
+            fg="white",
+            padx=15,
+            pady=8,
+            command=self.reset_game,
+            cursor="hand2"
+        )
+        self.reset_button.pack(side=tk.LEFT, padx=5)
+
+        # Undo button
+        self.undo_button = tk.Button(
+            self.button_frame,
+            text="↶ Annuler",
+            font=("Arial", 11, "bold"),
+            bg="#e74c3c",
+            fg="white",
+            padx=15,
+            pady=8,
+            command=self.undo_move,
+            cursor="hand2"
+        )
+        self.undo_button.pack(side=tk.LEFT, padx=5)
 
         # Base positions
         self.stock_position = (100, 100)
@@ -45,6 +78,29 @@ class SolitaireApp:
 
         # First display
         self._redraw()
+
+    def reset_game(self):
+        """Recommencer une nouvelle partie."""
+        if messagebox.askyesno("Nouvelle Partie", "Voulez-vous vraiment recommencer une nouvelle partie ?"):
+            # Réinitialiser le jeu
+            self.game = GameController()
+            self.selected_card = None
+            self.selected_cards_count = 0
+            self.selected_zone = None
+            self.card_zones.clear()
+            self.image_refs.clear()
+            # Redessiner
+            self._redraw()
+            print("✅ Nouvelle partie démarrée !")
+
+    def undo_move(self):
+        """Annuler le dernier coup."""
+        if self.game.save.history:
+            self.game.undo_move()
+            self._redraw()
+            print("↶ Coup annulé !")
+        else:
+            messagebox.showinfo("Annuler", "Aucun coup à annuler.")
 
     def load_card_image(self, card):
         """Load a card image (or back if face down)."""
@@ -104,9 +160,9 @@ class SolitaireApp:
             self.canvas.create_text(
                 self.stock_position[0] + 50,
                 self.stock_position[1] + 75,
-                text="Empty",
+                text="♻️\nRecycler",
                 fill="white",
-                font=("Arial", 12),
+                font=("Arial", 10),
             )
             # Clickable zone for empty stock (to recycle discard pile)
             self.card_zones["stock"] = {
@@ -288,16 +344,13 @@ class SolitaireApp:
         self.canvas.create_text(
             600,
             50,
-            text=f"Moves: {self.game.turns}",
+            text=f"Coups: {self.game.turns}",
             fill="white",
             font=("Arial", 16, "bold"),
         )
 
     def get_clicked_card(self, x, y):
         """Determine which card was clicked based on coordinates."""
-        # Go through card zones in reverse order to handle overlaps
-        # (cards drawn last are on top)
-
         clicked_zones = []
 
         for zone_id, zone in self.card_zones.items():
@@ -305,7 +358,6 @@ class SolitaireApp:
                 clicked_zones.append((zone_id, zone))
 
         # If multiple zones match, take the one with highest y
-        # (lowest card = drawn last)
         if clicked_zones:
             clicked_zones.sort(key=lambda z: z[1]["y1"], reverse=True)
             return clicked_zones[0]
@@ -321,7 +373,6 @@ class SolitaireApp:
     def _pile_top_card(self, pile_index):
         """Return the top visible card of a pile or None."""
         queue, stack = self._pile_objects(pile_index)
-        # stack is face-up; if it has items its top is visible
         try:
             if stack.size() > 0:
                 return stack.peek()
@@ -329,7 +380,6 @@ class SolitaireApp:
             if len(list(stack.items)) > 0:
                 return list(stack.items)[-1]
 
-        # otherwise, the top of queue (face-down) is not visible until flipped
         try:
             return queue.peek()
         except Exception:
@@ -340,10 +390,8 @@ class SolitaireApp:
         """Return numeric rank for comparison using piles.height from piles module."""
         try:
             from piles import height
-
             return height.index(card.value)
         except Exception:
-            # fallback mapping
             order = ["as", "2", "3", "4", "5", "6", "7", "8", "9", "10", "valet", "dame", "roi"]
             return order.index(card.value)
 
@@ -362,9 +410,8 @@ class SolitaireApp:
                 s_size = len(list(getattr(stack, 'items', [])))
 
             if q_size == 0 and s_size > 0:
-                # Hidden stack cards are static and must not be moved into the queue by the view.
-                # Do not flip or transfer any card here.
                 pass
+                
     def _redraw(self):
         """Normalize columns and redraw the GUI."""
         try:
@@ -415,12 +462,10 @@ class SolitaireApp:
 
         # Handle moves from discard
         if start_zone.get("type") == "discard":
-            # Only allow moving the last discard card
             if not start_zone.get("is_last", False):
                 print("Can't move a non-last discard card")
                 return
 
-            # Determine destination
             if end_zone.get("type") == "final":
                 dest = self.game.final_piles[end_zone["index"]]
                 success = self.game.move_from_discard(dest)
@@ -443,9 +488,10 @@ class SolitaireApp:
             if src_idx == dst_idx:
                 print("Released on same pile - no move")
                 return
-            # Determine how many cards to move based on start zone
+            
             src_queue, src_stack = self._pile_objects(src_idx)
             dst_queue, dst_stack = self._pile_objects(dst_idx)
+            
             try:
                 n_queue = src_queue.size()
             except Exception:
@@ -455,15 +501,10 @@ class SolitaireApp:
             except Exception:
                 n_stack = len(list(getattr(src_stack, 'items', [])))
 
-            # Do not allow moving hidden stack cards; only allow flips from stack
-            # (some stack zones may be mis-flagged, so also check zone id contains '_s_')
             if start_zone.get("is_stack", False) or (start_zone_id and "_s_" in start_zone_id):
-                # UI flips are disabled: GameStack cards must remain static in-place.
                 print("Hidden stack cards cannot be moved or flipped via the UI.")
                 return
 
-            # Otherwise clicked on visible queue area: move num cards from src_queue to dst_queue
-            # Ensure the start zone is a visible queue zone (has a card_index and is not a stack)
             clicked_card_index = start_zone.get("card_index")
             if start_zone_id and "_s_" in start_zone_id:
                 print("Cannot start a move from a hidden stack zone. Flip the card first.")
@@ -477,7 +518,6 @@ class SolitaireApp:
                 print("Nothing to move")
                 return
 
-            # Use controller to perform move (handles validation and save)
             success = self.game.move_card(src_queue, dst_queue, num_to_move)
             if success:
                 self._redraw()
@@ -491,12 +531,10 @@ class SolitaireApp:
             fpile = self.game.final_piles[end_zone["index"]]
             src_queue, src_stack = self._pile_objects(src_idx)
 
-            # Do not allow moving hidden stack cards directly to foundation
             if start_zone.get("is_stack", False):
                 print("Cannot move a hidden card to foundation. Flip it first.")
                 return
 
-            # Ensure there's at least one visible card in the queue
             try:
                 q_size = src_queue.size()
             except Exception:
@@ -506,7 +544,6 @@ class SolitaireApp:
                 print("No visible card to move to foundation.")
                 return
 
-            # Use controller which handles validation, saving and normalization
             success = self.game.move_card(src_queue, fpile, 1)
             if success:
                 self._redraw()
@@ -514,76 +551,24 @@ class SolitaireApp:
                 print("Invalid move to foundation")
             return
 
-    def on_mouse_click(self, event):
-        """Handle mouse clicks."""
-        x, y = event.x, event.y
+        # Handle moves FROM foundation TO tableau (NOUVEAU)
+        if start_zone.get("type") == "final" and end_zone.get("type") == "tableau":
+            src_fpile = self.game.final_piles[start_zone["index"]]
+            dst_idx = end_zone["pile_index"]
+            dst_queue = self.game.grid.game[dst_idx][0]
 
-        # Determine which card/zone was clicked
-        zone_id, zone = self.get_clicked_card(x, y)
+            # Vérifier qu'il y a une carte dans la fondation
+            if src_fpile.is_empty():
+                print("Foundation pile is empty.")
+                return
 
-        if zone_id is None:
-            print(f"Click at ({x}, {y}) - No card")
-            return
-
-        print(f"Click at ({x}, {y}) - Zone: {zone_id}, Type: {zone['type']}")
-
-        # Remember this zone as potential drag start in case press wasn't captured
-        self.selected_zone = (zone_id, zone)
-
-        # Handle click based on zone type
-        if zone["type"] == "stock":
-            self.game.draw_from_stock()
-            self.draw_game()
-
-        elif zone["type"] == "discard":
-            if zone.get("is_last", False):
-                print(f"Discard card selected (index {zone['index']})")
-                # Selection/movement logic
-
-        elif zone["type"] == "tableau":
-            pile_idx = zone["pile_index"]
-            card_idx = zone["card_index"]
-
-            if zone.get("is_empty", False):
-                print(f"Tableau pile {pile_idx} empty - can receive a King")
-            elif zone.get("is_last", False):
-                print(f"Last card of pile {pile_idx} selected")
-                # Selection/movement logic
+            success = self.game.move_card(src_fpile, dst_queue, 1)
+            if success:
+                self._redraw()
+                print("✅ Carte déplacée de la fondation vers le tableau")
             else:
-                print(f"Card {card_idx} of pile {pile_idx} (partially visible)")
-                # The grid.game structure stores for each column: [Game_queue (face-down), GameStack (face-up)]
-                pile = self.game.grid.game[pile_idx]
-                queue = pile[0]
-                stack = pile[1]
-
-                # Determine sizes (support both .size() methods and direct access)
-                try:
-                    n_queue = queue.size()
-                except Exception:
-                    n_queue = len(list(getattr(queue, 'items', [])))
-
-                try:
-                    n_stack = stack.size()
-                except Exception:
-                    n_stack = len(list(getattr(stack, 'items', [])))
-
-                # If clicked area is the hidden stack -> attempt flip
-                if zone.get('is_stack', False):
-                    # Do not allow any UI-driven flips or moves from the hidden stack
-                    print("Hidden stack cards cannot be flipped or moved via the UI.")
-                    return
-
-                else:
-                    # Clicked in visible queue area: compute movable count
-                    if card_idx is None:
-                        print("No card index available")
-                        return
-
-                    num_cards = n_queue - card_idx
-                    print(f"  -> Can move {num_cards} card(s)")
-
-        elif zone["type"] == "final":
-            print(f"Foundation pile {zone['index']} clicked")
+                print("Invalid move from foundation to tableau")
+            return
 
 
 if __name__ == "__main__":
