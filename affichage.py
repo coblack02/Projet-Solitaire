@@ -38,47 +38,74 @@ class SolitaireApp:
         self.button_frame = tk.Frame(root, bg="darkgreen")
         self.button_frame.place(x=20, y=750)
 
+        # Create rounded button images
+        self.btn_images = {}
+        self._create_button_images()
+
         # Reset button
         self.reset_button = tk.Button(
             self.button_frame,
+            image=self.btn_images['reset_normal'],
             text="🔄 Nouvelle Partie",
+            compound="center",
             font=("Arial", 11, "bold"),
-            bg="#2ecc71",
             fg="white",
+            bg="darkgreen",
+            border=0,
+            activebackground="darkgreen",
+            activeforeground="white",
             padx=15,
             pady=8,
             command=self.reset_game,
             cursor="hand2",
+            highlightthickness=0,
         )
         self.reset_button.pack(side=tk.LEFT, padx=5)
 
         # Undo button
         self.undo_button = tk.Button(
             self.button_frame,
+            image=self.btn_images['undo_normal'],
             text="↶ Annuler",
+            compound="center",
             font=("Arial", 11, "bold"),
-            bg="#e74c3c",
             fg="white",
+            bg="darkgreen",
+            border=0,
+            activebackground="darkgreen",
+            activeforeground="white",
             padx=15,
             pady=8,
             command=self.undo_move,
             cursor="hand2",
+            highlightthickness=0,
         )
         self.undo_button.pack(side=tk.LEFT, padx=5)
 
         # Hint button
         self.hint_button = tk.Button(
             self.button_frame,
+            image=self.btn_images['hint_normal'],
             text="💡 Indice",
+            compound="center",
             font=("Arial", 11, "bold"),
-            bg="#f39c12",
             fg="white",
+            bg="darkgreen",
+            border=0,
+            activebackground="darkgreen",
+            activeforeground="white",
             padx=15,
             pady=8,
             command=self.show_hint,
             cursor="hand2",
+            highlightthickness=0,
         )
         self.hint_button.pack(side=tk.LEFT, padx=5)
+
+        # Bind hover effects
+        self._bind_button_hover(self.reset_button, 'reset')
+        self._bind_button_hover(self.undo_button, 'undo')
+        self._bind_button_hover(self.hint_button, 'hint')
 
         # Base positions
         self.stock_position = (100, 100)
@@ -112,6 +139,40 @@ class SolitaireApp:
 
         # First display
         self._redraw()
+
+    def _create_button_images(self):
+        """Create rounded button images with normal and hover states."""
+        buttons_config = {
+            'reset': {'normal': '#2ecc71', 'hover': '#27ae60'},
+            'undo': {'normal': '#e74c3c', 'hover': '#c0392b'},
+            'hint': {'normal': '#f39c12', 'hover': '#e67e22'},
+        }
+
+        for btn_name, colors in buttons_config.items():
+            # Normal state
+            img_normal = Image.new("RGBA", (150, 50), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(img_normal)
+            draw.rounded_rectangle([(0, 0), (150, 50)], radius=5, fill=colors['normal'])
+            photo_normal = ImageTk.PhotoImage(img_normal)
+            self.btn_images[f'{btn_name}_normal'] = photo_normal
+
+            # Hover state
+            img_hover = Image.new("RGBA", (150, 50), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(img_hover)
+            draw.rounded_rectangle([(0, 0), (150, 50)], radius=5, fill=colors['hover'])
+            photo_hover = ImageTk.PhotoImage(img_hover)
+            self.btn_images[f'{btn_name}_hover'] = photo_hover
+
+    def _bind_button_hover(self, button, btn_name):
+        """Bind hover effects to a button."""
+        def on_enter(e):
+            button.config(image=self.btn_images[f'{btn_name}_hover'])
+
+        def on_leave(e):
+            button.config(image=self.btn_images[f'{btn_name}_normal'])
+
+        button.bind("<Enter>", on_enter)
+        button.bind("<Leave>", on_leave)
 
     def reset_game(self):
         """Reset the game after confirmation."""
