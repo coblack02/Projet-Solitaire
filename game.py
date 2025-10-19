@@ -279,3 +279,138 @@ class GameController(Game):
         if self.all_tableau_cards_revealed():
             return self.auto_complete()
         return False
+
+    def find_best_hint(self):
+        """Find the best move hint for the player."""
+        hints = []
+        
+        # Priority 1: Move to foundation (highest priority)
+        # Check discard pile
+        if not self.discard_pile.is_empty():
+            top_card = self.discard_pile.peek()
+            foundation = self.can_move_to_foundation(top_card)
+            if foundation:
+                foundation_index = self.final_piles.index(foundation)
+                hints.append({
+                    'priority': 1,
+                    'type': 'discard_to_foundation',
+                    'card': top_card,
+                    'foundation_index': foundation_index,
+                    'message': f"Placer {top_card.value} de {top_card.family} de la défausse vers la fondation {foundation_index + 1}"
+                })
+        
+        # Check tableau piles for moves to foundation
+        for i, elem in enumerate(self.grid.game):
+            queue = elem[0]
+            try:
+                if not queue.is_empty():
+                    top_card = queue.peek()
+                    foundation = self.can_move_to_foundation(top_card)
+                    if foundation:
+                        foundation_index = self.final_piles.index(foundation)
+                        hints.append({
+                            'priority': 1,
+                            'type': 'tableau_to_foundation',
+                            'card': top_card,
+                            'source_pile': i,
+                            'foundation_index': foundation_index,
+                            'message': f"Placer {top_card.value} de {top_card.family} de la colonne {i + 1} vers la fondation {foundation_index + 1}"
+                        })
+            except:
+                pass
+        
+        # Priority 2: Reveal hidden cards
+        for i, elem in enumerate(self.grid.game):
+            queue = elem[0]
+            stack = elem[1]
+            try:
+                if not queue.is_empty():
+                    # Check if moving this pile would reveal a hidden card
+                    try:
+                        if queue.size() > 0 and not stack.is_empty():
+                            top_card = queue.peek()
+                            # Try to find a destination for this card
+                            for j, dest_elem in enumerate(self.grid.game):
+                                if i != j:
+                                    dest_queue = dest_elem[0]
+                                    if dest_queue.can_stack(top_card):
+                                        hints.append({
+                                            'priority': 2,
+                                            'type': 'tableau_to_tableau_reveal',
+                                            'card': top_card,
+                                            'source_pile': i,
+                                            'dest_pile': j,
+                                            'message': f"Déplacer {top_card.value} de {top_card.family} de la colonne {i + 1} vers la colonne {j + 1} pour révéler une carte"
+                                        })
+                    except:
+                        pass
+            except:
+                pass
+        
+        # Priority 3: Move from discard to tableau
+        if not self.discard_pile.is_empty():
+            top_card = self.discard_pile.peek()
+            for i, elem in enumerate(self.grid.game):
+                queue = elem[0]
+                if queue.can_stack(top_card):
+                    hints.append({
+                        'priority': 3,
+                        'type': 'discard_to_tableau',
+                        'card': top_card,
+                        'dest_pile': i,
+                        'message': f"Placer {top_card.value} de {top_card.family} de la défausse vers la colonne {i + 1}"
+                    })
+        
+        # Priority 4: General tableau moves
+        for i, elem in enumerate(self.grid.game):
+            queue = elem[0]
+            try:
+                if not queue.is_empty():
+                    # Try moving multiple cards
+                    cards_list = list(queue.items)
+                    for card_idx, card in enumerate(cards_list):
+                        for j, dest_elem in enumerate(self.grid.game):
+                            if i != j:
+                                dest_queue = dest_elem[0]
+                                if dest_queue.can_stack(card):
+                                    num_cards = len(cards_list) - card_idx
+                                    hints.append({
+                                        'priority': 4,
+                                        'type': 'tableau_to_tableau',
+                                        'card': card,
+                                        'source_pile': i,
+                                        'dest_pile': j,
+                                        'num_cards': num_cards,
+                                        'message': f"Déplacer {num_cards} carte(s) de la colonne {i + 1} vers la colonne {j + 1}"
+                                    })
+            except:
+                pass
+        
+        # Priority 5: Draw from stock
+        if not self.stock.is_empty():
+            hints.append({
+                'priority': 5,
+                'type': 'draw_stock',
+                'message': "Piocher 3 cartes du stock"
+            })
+        elif not self.discard_pile.is_empty():
+            hints.append({
+                'priority': 5,
+                'type': 'recycle_stock',
+                'message': "Recycler la défausse vers le stock"
+            })
+        
+        # Sort by priority and return the best hint
+        if hints:
+            hints.sort(key=lambda h: h['priority'])
+            return hints[0]
+        
+        return None
+    
+    def get_hint_message(self):
+        """Get a hint message for the player."""
+        hint = self.find_best_hint()
+        if hint:
+            return hint
+        else:
+            return {'message': "Aucun coup évident disponible. Essayez de piocher ou de réorganiser les colonnes."}
