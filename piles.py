@@ -1,5 +1,5 @@
 from collections import deque
-from cartes import Card 
+from cartes import Card
 import random
 
 # cards defini
@@ -31,8 +31,8 @@ class Stack:
 
     def size(self):
         return len(self.items)
-    
-    
+
+
 class Stock(Stack):
     def __init__(self):
         super().__init__()
@@ -64,7 +64,6 @@ class Stock(Stack):
             return None
 
 
-
 class DiscardPile(Stack):
     """Represents the discard pile in Solitaire."""
 
@@ -80,7 +79,6 @@ class DiscardPile(Stack):
         if self.is_empty():
             return None
         return self.peek()
-    
 
     def visible(self):
         """Returns up to three cards from the top of the discard pile without removing them."""
@@ -95,7 +93,6 @@ class DiscardPile(Stack):
             return res
         else:
             return None
-
 
 
 class FinalPile(Stack):

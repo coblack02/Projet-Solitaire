@@ -87,7 +87,6 @@ class Game_queue(Queue):
             return False
 
 
-
 class GameStack(Stack):
     def __init__(self, stock: Stock, length: int) -> None:
         super().__init__()
