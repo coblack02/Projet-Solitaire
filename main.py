@@ -15,7 +15,7 @@ RULES_TEXT = (
 )
 
 
-def create_rounded_button_image(width, height, radius, bg_color):
+def create_rounded_button_image(width, height, radius, bg_color) -> Image.Image:
     """create a rounded rectangle button image."""
     img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
@@ -23,7 +23,7 @@ def create_rounded_button_image(width, height, radius, bg_color):
     return img
 
 
-def open_game_from_menu(root):
+def open_game_from_menu(root) -> None:
     # Open the game in a new window and hide the menu window
     root.withdraw()
     game_win = tk.Toplevel()
@@ -37,11 +37,11 @@ def open_game_from_menu(root):
     SolitaireApp(game_win, menu_root=root)
 
 
-def show_rules():
+def show_rules() -> None:
     messagebox.showinfo("Règles du Solitaire", RULES_TEXT)
 
 
-def main_menu():
+def main_menu() -> None:
     root = tk.Tk()
     root.title("Solitaire - Menu")
     root.geometry("400x300")
@@ -76,7 +76,7 @@ def main_menu():
     photo_normal = ImageTk.PhotoImage(img_normal)
     photo_hover = ImageTk.PhotoImage(img_hover)
 
-    def create_styled_button(parent, text, command):
+    def create_styled_button(parent, text, command) -> tk.Button:
         """Create a styled button with hover effect."""
         btn = tk.Button(
             parent,
@@ -96,10 +96,10 @@ def main_menu():
         )
 
         # hover effect
-        def on_enter(e):
+        def on_enter(e) -> None:
             btn.config(image=photo_hover)
 
-        def on_leave(e):
+        def on_leave(e) -> None:
             btn.config(image=photo_normal)
 
         btn.bind("<Enter>", on_enter)

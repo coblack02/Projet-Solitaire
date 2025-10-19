@@ -7,8 +7,65 @@ from cartes import Card
 
 
 class SolitaireApp:
+    """
+    Interface graphique du jeu de Solitaire utilisant Tkinter.
 
-    def __init__(self, root: tk.Tk, menu_root: tk.Tk = None):
+    Cette classe gère l'affichage complet du jeu, les interactions utilisateur
+    via drag & drop, les boutons de contrôle et la communication avec le 
+    contrôleur de jeu (GameController).
+
+    Attributes:
+        root (tk.Tk): Fenêtre principale de l'application Tkinter.
+        game (GameController): Instance du contrôleur de jeu gérant la logique.
+        canvas (tk.Canvas): Canvas principal pour dessiner les cartes et le plateau.
+        button_frame (tk.Frame): Cadre contenant les trois boutons de contrôle.
+        reset_button (tk.Button): Bouton "🔄 Nouvelle Partie" (vert).
+        undo_button (tk.Button): Bouton "↶ Annuler" (rouge).
+        hint_button (tk.Button): Bouton "💡 Indice" (orange).
+
+        stock_position (tuple): Position (x, y) du stock (pioche).
+        discard_position (tuple): Position (x, y) de la défausse.
+        foundation_start_x (int): Position X de départ des fondations.
+        foundation_spacing (int): Espacement entre les piles de fondation.
+        tableau_start_y (int): Position Y de départ du tableau (7 colonnes).
+        column_spacing (int): Espacement entre les colonnes du tableau.
+
+        image_refs (list): Liste des références d'images PhotoImage pour éviter
+            le garbage collection de Tkinter.
+        card_zones (dict): Dictionnaire mappant zone_id → métadonnées de zone
+            pour la détection des clics. Structure: {zone_id: {x1, y1, x2, y2, 
+            type, ...}}
+selected_card (None): Réservé pour système de sélection (non utilisé).
+        selected_cards_count (int): Nombre de cartes sélectionnées (non utilisé).
+        selected_zone (tuple): Zone actuellement sélectionnée (zone_id, zone_dict).
+
+        dragging (bool): True si un drag est en cours, False sinon.
+        drag_start_zone (dict): Métadonnées de la zone où le drag a commencé.
+        drag_cards_images (list): Liste des images PhotoImage des cartes en drag.
+        current_mousepos (tuple): Position actuelle (x, y) de la souris.
+
+
+    Coordinate System:
+        
+Origin (0,0): Top-left du canvas
+Stock: (100, 100)
+    
+Défausse: (250, 100)
+Fondations: (600, 100) avec espacement de 150px
+Tableau: (100, 300) avec colonnes espacées de 150px
+Boutons: (20, 750)
+
+Examples:
+root = tk.Tk()
+        >>> app = SolitaireApp(root)
+        >>> root.mainloop()
+
+    Note:
+        Les images de cartes doivent être dans le dossier 'assets/cartes/'
+        avec le format: {valeur}
+{famille}.gif et dos_de_carte.webp
+    """
+    def __init__(self, root: tk.Tk, menu_root: tk.Tk = None) -> None:
         self.root = root
         self.root.title("Solitaire")
         self.root.geometry("1200x800")
@@ -102,13 +159,18 @@ class SolitaireApp:
         )
         self.hint_button.pack(side=tk.LEFT, padx=5)
 
-        # Abandon button - return to menu
+        # Abandon button - return to menu (same style as others)
         self.abandon_button = tk.Button(
             self.button_frame,
-            text="� Abandonner",
+            image=self.btn_images.get('abandon_normal'),
+            text="🚪 Abandonner",
+            compound="center",
             font=("Arial", 11, "bold"),
-            bg="#95a5a6",
             fg="white",
+            bg="darkgreen",
+            border=0,
+            activebackground="darkgreen",
+            activeforeground="white",
             padx=15,
             pady=8,
             command=self.abandon_game,
@@ -121,6 +183,7 @@ class SolitaireApp:
         self._bind_button_hover(self.reset_button, 'reset')
         self._bind_button_hover(self.undo_button, 'undo')
         self._bind_button_hover(self.hint_button, 'hint')
+        self._bind_button_hover(self.abandon_button, 'abandon')
 
         # Base positions
         self.stock_position = (100, 100)
@@ -155,12 +218,13 @@ class SolitaireApp:
         # First display
         self._redraw()
 
-    def _create_button_images(self):
+    def _create_button_images(self) -> None:
         """Create rounded button images with normal and hover states."""
         buttons_config = {
             'reset': {'normal': '#2ecc71', 'hover': '#27ae60'},
             'undo': {'normal': '#e74c3c', 'hover': '#c0392b'},
             'hint': {'normal': '#f39c12', 'hover': '#e67e22'},
+            'abandon': {'normal': '#95a5a6', 'hover': '#7f8c8d'},
         }
 
         for btn_name, colors in buttons_config.items():
@@ -178,18 +242,18 @@ class SolitaireApp:
             photo_hover = ImageTk.PhotoImage(img_hover)
             self.btn_images[f'{btn_name}_hover'] = photo_hover
 
-    def _bind_button_hover(self, button, btn_name):
+    def _bind_button_hover(self, button, btn_name) -> None:
         """Bind hover effects to a button."""
-        def on_enter(e):
+        def on_enter(e) -> None:
             button.config(image=self.btn_images[f'{btn_name}_hover'])
 
-        def on_leave(e):
+        def on_leave(e) -> None:
             button.config(image=self.btn_images[f'{btn_name}_normal'])
 
         button.bind("<Enter>", on_enter)
         button.bind("<Leave>", on_leave)
 
-    def reset_game(self):
+    def reset_game(self) -> None:
         """Reset the game after confirmation."""
         if messagebox.askyesno(
             "Nouvelle Partie", "Voulez-vous vraiment recommencer une nouvelle partie ?"
@@ -205,7 +269,7 @@ class SolitaireApp:
             self.drag_cards_images.clear()
             self._redraw()
 
-    def undo_move(self):
+    def undo_move(self) -> None:
         """Undo the last move."""
         if self.game.save.history:
             self.game.undo_move()
@@ -213,7 +277,7 @@ class SolitaireApp:
         else:
             messagebox.showinfo("Annuler", "Aucun coup à annuler.")
 
-    def abandon_game(self):
+    def abandon_game(self) -> None:
         """Abandon the current game and return to the main menu (if available)."""
         if messagebox.askyesno("Abandonner", "Voulez-vous vraiment abandonner et retourner au menu ?"):
             try:
@@ -229,7 +293,7 @@ class SolitaireApp:
                 except Exception:
                     pass
 
-    def show_hint(self):
+    def show_hint(self) -> None:
         """Show a hint to the player."""
         hint = self.game.get_hint_message()
         if hint:
@@ -277,7 +341,7 @@ class SolitaireApp:
                 "Aucun coup évident disponible.\n\nEssayez de piocher ou de réorganiser les colonnes.",
             )
 
-    def load_card_image(self, card: Card):
+    def load_card_image(self, card: Card) -> ImageTk.PhotoImage:
         """Load a card image (or back if face down)."""
         if not card.face:
             img = Image.open("assets/cartes/dos_de_carte.jpg")
@@ -291,7 +355,7 @@ class SolitaireApp:
         self.image_refs.append(photo)
         return photo
 
-    def _round_corners(self, img: Image.Image, radius: int = 15):
+    def _round_corners(self, img: Image.Image, radius: int = 15) -> Image.Image:
         """Arrondir les coins d'une image."""
         # Créer un masque circulaire
         mask = Image.new("L", img.size, 0)
@@ -304,7 +368,7 @@ class SolitaireApp:
         img.putalpha(mask)
         return img
 
-    def draw_game(self):
+    def draw_game(self) -> None:
         """Update the entire graphical display of the game."""
         self._normalize_columns()
         self.canvas.delete("all")
@@ -514,7 +578,7 @@ class SolitaireApp:
             font=("Arial", 16, "bold"),
         )
 
-    def get_clicked_card(self, x: float, y: float):
+    def get_clicked_card(self, x: float, y: float) -> tuple:
         """Determine which card was clicked."""
         clicked_zones = []
         for zone_id, zone in self.card_zones.items():
@@ -525,16 +589,16 @@ class SolitaireApp:
             return clicked_zones[0]
         return None, None
 
-    def _pile_objects(self, pile_index: int):
+    def _pile_objects(self, pile_index: int) -> tuple:
         """Return (queue, stack) for a tableau pile."""
         elem = self.game.grid.game[pile_index]
         return elem[0], elem[1]
 
-    def _normalize_columns(self):
+    def _normalize_columns(self) -> None:
         """Normalize columns."""
         pass
 
-    def _redraw(self):
+    def _redraw(self) -> None:
         """Redraw the GUI."""
         try:
             self._normalize_columns()
@@ -545,7 +609,7 @@ class SolitaireApp:
         except:
             pass
 
-    def _on_victory(self):
+    def _on_victory(self) -> None:
         """Display a victory overlay and return to the menu after a delay."""
         try:
             # Overlay frame covering the root
@@ -567,7 +631,7 @@ class SolitaireApp:
             label.pack(padx=20, pady=20)
 
             # After 4 seconds, close overlay and return to menu
-            def finish():
+            def finish() -> None:
                 try:
                     overlay.destroy()
                 except Exception:
@@ -586,7 +650,7 @@ class SolitaireApp:
         self.root.update_idletasks()
         self.root.update()
 
-    def _prepare_dragged_cards(self, start_zone: dict):
+    def _prepare_dragged_cards(self, start_zone: dict) -> None:
         """Prepare card images for drag."""
         self.drag_cards_images = []
         if start_zone.get("type") == "discard":
@@ -620,7 +684,7 @@ class SolitaireApp:
                     if img:
                         self.drag_cards_images.append(img)
 
-    def on_mouse_press(self, event: tk.Event):
+    def on_mouse_press(self, event: tk.Event) -> None:
         """Handle mouse press."""
         x, y = event.x, event.y
         zone_id, zone = self.get_clicked_card(x, y)
@@ -630,7 +694,7 @@ class SolitaireApp:
             self.drag_start_zone = zone
             self._prepare_dragged_cards(zone)
 
-    def on_mouse_motion(self, event: tk.Event):
+    def on_mouse_motion(self, event: tk.Event) -> None:
         """Handle mouse motion during drag."""
         self.current_mouse_pos = (event.x, event.y)
         if not self.dragging or not self.drag_start_zone:
@@ -647,7 +711,7 @@ class SolitaireApp:
             )
             offset_y += 30
 
-    def on_mouse_release(self, event: tk.Event):
+    def on_mouse_release(self, event: tk.Event) -> None:
         """Handle mouse release."""
         x, y = event.x, event.y
         start_zone_id, start_zone = (

@@ -2,14 +2,14 @@ import pygame
 
 
 class AudioManager:
-    def __init__(self):
+    def __init__(self) -> None:
         pygame.mixer.init()
         self.current_music = None
         self.volume = 0.7
 
     def play_music(
         self, filepath="assets/musique/musique_balatro.mp3", loops: int = -1
-    ):
+    ) -> None:
         """Jouer une musique en boucle (-1 = infini)."""
         try:
             pygame.mixer.music.load(filepath)
@@ -19,11 +19,11 @@ class AudioManager:
         except Exception as e:
             print(f"Erreur lors du chargement de la musique: {e}")
 
-    def stop_music(self):
+    def stop_music(self) -> None:
         """Arrêter la musique."""
         pygame.mixer.music.stop()
 
-    def set_volume(self, volume: float):
+    def set_volume(self, volume: float) -> None:
         """Régler le volume (0.0 à 1.0)."""
         self.volume = max(0.0, min(1.0, volume))
         pygame.mixer.music.set_volume(self.volume)

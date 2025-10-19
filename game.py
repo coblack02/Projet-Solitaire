@@ -45,7 +45,27 @@ class Save:
 
 
 class GameController(Game):
-    """Manages game state, player actions, and saving/loading."""
+    """
+    Contrôleur principal du jeu de Solitaire.
+
+    Cette classe gère l'état du jeu, les actions du joueur, la sauvegarde/restauration
+    des états, l'auto-complétion et le système d'indices.
+
+    Attributes:
+        save (Save): Gestionnaire de sauvegarde et d'annulation des coups.
+        turns (int): Nombre de coups effectués depuis le début de la partie.
+        _redraw_callback (callable, optional): Fonction callback pour redessiner l'interface
+            pendant l'auto-complétion.
+
+    Inherits:
+        Game: Classe de base contenant l'état du jeu (stock, défausse, fondations, tableau).
+
+    Examples:
+game = GameController()
+        >>> game.draw_from_stock()  # Tirer 3 cartes
+        >>> game.undo_move()  # Annuler le dernier coup
+        >>> hint = game.get_hint_message()  # Obtenir un indice
+    """
 
     def __init__(self) -> None:
         super().__init__()

@@ -8,33 +8,35 @@ height = ("as", "2", "3", "4", "5", "6", "7", "8", "9", "10", "valet", "dame", "
 
 
 class Stack:
-    def __init__(self):
+    """A basic stack implementation for card piles."""
+    def __init__(self) -> None:
         self.items = deque()
 
-    def is_empty(self):
+    def is_empty(self) -> bool:
         return len(self.items) == 0
 
-    def push(self, item):
+    def push(self, item) -> None:
         self.items.append(item)
 
-    def pop(self):
+    def pop(self) -> Card | None:
         if not self.is_empty():
             return self.items.pop()
         else:
             return None
 
-    def peek(self):
+    def peek(self) -> Card | None:
         if not self.is_empty():
             return self.items[-1]
         else:
             return None
 
-    def size(self):
+    def size(self) -> int:
         return len(self.items)
 
 
 class Stock(Stack):
-    def __init__(self):
+    """Represents the stock pile in Solitaire."""
+    def __init__(self) -> None:
         super().__init__()
         # Create deck of 52 cards
         for c in range(4):
@@ -42,13 +44,13 @@ class Stock(Stack):
                 new_card = Card(family[c], height[h])
                 self.push(new_card)
 
-    def shuffle(self):
+    def shuffle(self) -> None:
         """Shuffle the deck of cards."""
         temp_list = list(self.items)
         random.shuffle(temp_list)
         self.items = deque(temp_list)
 
-    def draw(self):
+    def draw(self) -> list[Card] | None:
         """Draw up to three cards from the stock."""
         t = self.size()
         res = []
@@ -67,20 +69,20 @@ class Stock(Stack):
 class DiscardPile(Stack):
     """Represents the discard pile in Solitaire."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
-    def draw(self):
+    def draw(self) -> Card | None:
         """Remove and return the top card of the discard pile."""
         return self.pop()
 
-    def top(self):
+    def top(self) -> Card | None:
         """Returns the top card of the discard pile without removing it."""
         if self.is_empty():
             return None
         return self.peek()
 
-    def visible(self):
+    def visible(self) -> list[Card] | None:
         """Returns up to three cards from the top of the discard pile without removing them."""
         t = self.size()
         res = []
@@ -98,10 +100,10 @@ class DiscardPile(Stack):
 class FinalPile(Stack):
     """Represents one of the four foundation piles in Solitaire."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
-    def can_stack(self, elem: Card):
+    def can_stack(self, elem: Card) -> bool:
         """Check if a card can be placed on this final pile."""
         if self.is_empty():
             return elem.value == "as"
@@ -114,7 +116,7 @@ class FinalPile(Stack):
             else:
                 return False
 
-    def stack(self, elem: Card):
+    def stack(self, elem: Card) -> bool:
         """Place a card on this final pile if the move is valid."""
         if self.can_stack(elem):
             self.push(elem)
