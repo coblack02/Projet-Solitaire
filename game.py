@@ -50,6 +50,8 @@ class GameController(Game):
         super().__init__()
         self.save = Save(self)
         self.turns = 0
+        # Optional callback that will be called when the game is completed
+        self.on_victory = None
 
     def recycle_discard_to_stock(self) -> None:
         """Recycle all cards from the discard pile back to the stock."""
@@ -272,6 +274,17 @@ class GameController(Game):
                 except Exception as e:
                     pass
 
+        # After auto-complete finishes, trigger a victory callback if all foundations are full
+        try:
+            complete = all([p.size() == 13 for p in self.final_piles])
+            if complete and callable(getattr(self, 'on_victory', None)):
+                try:
+                    self.on_victory()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
         return True
 
     def check_and_auto_complete(self) -> bool:
@@ -414,3 +427,4 @@ class GameController(Game):
             return hint
         else:
             return {'message': "Aucun coup évident disponible. Essayez de piocher ou de réorganiser les colonnes."}
+

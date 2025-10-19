@@ -354,6 +354,39 @@ class SolitaireApp:
             self.draw_game()
         except:
             pass
+    
+    def _on_victory(self):
+        """Display a victory overlay and return to the menu after a delay."""
+        try:
+            # Overlay frame covering the root
+            overlay = tk.Toplevel(self.root)
+            overlay.attributes("-fullscreen", True)
+            overlay.config(bg="black")
+            overlay.attributes("-alpha", 0.85)
+
+            frame = tk.Frame(overlay, bg="black")
+            frame.place(relx=0.5, rely=0.5, anchor="center")
+
+            label = tk.Label(frame, text="Vous avez gagné!", font=("Arial", 48, "bold"), fg="white", bg="black")
+            label.pack(padx=20, pady=20)
+
+            # After 4 seconds, close overlay and return to menu
+            def finish():
+                try:
+                    overlay.destroy()
+                except Exception:
+                    pass
+                try:
+                    # destroy game window and show menu
+                    self.root.destroy()
+                    if self._menu_root:
+                        self._menu_root.deiconify()
+                except Exception:
+                    pass
+
+            overlay.after(4000, finish)
+        except Exception:
+            pass
         self.root.update_idletasks()
         self.root.update()
 
@@ -512,9 +545,3 @@ class SolitaireApp:
             return
 
         self._redraw()
-
-
-if __name__ == "__main__":
-    root = tk.Tk()
-    app = SolitaireApp(root)
-    root.mainloop()
