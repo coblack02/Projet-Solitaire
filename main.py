@@ -3,7 +3,6 @@ from affichage import SolitaireApp
 
 
 def main():
-    """Main entry point for the Solitaire game."""
     root = tk.Tk()
     app = SolitaireApp(root)
     root.mainloop()

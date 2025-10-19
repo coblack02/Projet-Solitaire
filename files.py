@@ -86,8 +86,6 @@ class Game_queue(Queue):
                 self.enqueue(temp.pop())
             return False
 
-    def __repr__(self):
-        return f"GameQueue({list(self.items)})"
 
 
 class GameStack(Stack):
@@ -97,9 +95,6 @@ class GameStack(Stack):
             card = stock.pop()
             if card:
                 self.push(card)
-
-    def __repr__(self):
-        return f"GameStack({self.items})"
 
     def flip_into_queue(self, queue: Game_queue) -> bool:
         """Pop the top card from this hidden stack and enqueue it into the provided queue.
@@ -155,9 +150,6 @@ class Grid:
                     pass
 
         self.game = [[self.queue[i], self.stack[i]] for i in range(7)]
-
-    def __str__(self) -> str:
-        return f"GameStack({self.game})"
 
     def normalize(self):
         """For each column: if the queue is empty and the stack has cards,
