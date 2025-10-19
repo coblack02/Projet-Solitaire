@@ -9,7 +9,6 @@ from cartes import Card
 class SolitaireApp:
 
     def __init__(self, root: tk.Tk, menu_root: tk.Tk = None):
-    def __init__(self, root: tk.Tk, menu_root: tk.Tk = None):
         self.root = root
         self.root.title("Solitaire")
         self.root.geometry("1200x800")
