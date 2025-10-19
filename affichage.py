@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import messagebox
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageDraw
 from game import GameController
 from cartes import Card
 
@@ -172,13 +172,33 @@ class SolitaireApp:
     def load_card_image(self, card: Card):
         """Load a card image (or back if face down)."""
         if not card.face:
-            img = Image.open("assets/cartes/dos_de_carte.webp")
+            img = Image.open("assets/cartes/dos_de_carte.jpg")
         else:
             img = Image.open(f"assets/cartes/{card.value}_{card.family}.png")
         img = img.resize((100, 150))
+    
+        img = self._round_corners(img, radius=5)
+    
         photo = ImageTk.PhotoImage(img)
         self.image_refs.append(photo)
         return photo
+
+    def _round_corners(self, img: Image.Image, radius: int = 15):
+        """Arrondir les coins d'une image."""
+        # Créer un masque circulaire
+        mask = Image.new('L', img.size, 0)
+        draw = ImageDraw.Draw(mask)
+    
+        # Dessiner les coins arrondis
+        draw.rounded_rectangle(
+            [(0, 0), img.size],
+            radius=radius,
+            fill=255
+        )
+    
+        # Appliquer le masque
+        img.putalpha(mask)
+        return img
 
     def draw_game(self):
         """Update the entire graphical display of the game."""
@@ -189,7 +209,8 @@ class SolitaireApp:
 
         # Stock
         if not self.game.stock.is_empty():
-            stock_img = Image.open("assets/cartes/dos_de_carte.webp").resize((100, 150))
+            stock_img = Image.open("assets/cartes/dos_de_carte.jpg").resize((100, 150))
+            stock_img = self._round_corners(stock_img, radius=5)
             stock_photo = ImageTk.PhotoImage(stock_img)
             self.image_refs.append(stock_photo)
             self.canvas.create_image(self.stock_position[0], self.stock_position[1], image=stock_photo, anchor="nw", tags="stock")
