@@ -120,9 +120,9 @@ class SolitaireApp:
     def load_card_image(self, card: Card):
         """Load a card image (or back if face down)."""
         if not card.face:
-            img = Image.open("cartes/dos_de_carte.webp")
+            img = Image.open("assets/cartes/dos_de_carte.webp")
         else:
-            img = Image.open(f"cartes/{card.value}_{card.family}.gif")
+            img = Image.open(f"assets/cartes/{card.value}_{card.family}.gif")
 
         img = img.resize((100, 150))
         photo = ImageTk.PhotoImage(img)
@@ -141,7 +141,7 @@ class SolitaireApp:
 
         # Stock (draw pile)
         if not self.game.stock.is_empty():
-            stock_img = Image.open("cartes/dos_de_carte.webp").resize((100, 150))
+            stock_img = Image.open("assets/cartes/dos_de_carte.webp").resize((100, 150))
             stock_photo = ImageTk.PhotoImage(stock_img)
             self.image_refs.append(stock_photo)
             self.canvas.create_image(
