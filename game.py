@@ -280,7 +280,7 @@ class GameController(Game):
             return self.auto_complete()
         return False
 
-    def find_best_hint(self):
+    def find_best_hint(self) -> Union[dict, None]:
         """Find the best move hint for the player."""
         hints = []
         
