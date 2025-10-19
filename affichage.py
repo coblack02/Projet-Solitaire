@@ -45,7 +45,7 @@ class SolitaireApp:
         # Reset button
         self.reset_button = tk.Button(
             self.button_frame,
-            image=self.btn_images['reset_normal'],
+            image=self.btn_images.get('reset_normal'),
             text="🔄 Nouvelle Partie",
             compound="center",
             font=("Arial", 11, "bold"),
@@ -65,7 +65,7 @@ class SolitaireApp:
         # Undo button
         self.undo_button = tk.Button(
             self.button_frame,
-            image=self.btn_images['undo_normal'],
+            image=self.btn_images.get('undo_normal'),
             text="↶ Annuler",
             compound="center",
             font=("Arial", 11, "bold"),
@@ -85,7 +85,7 @@ class SolitaireApp:
         # Hint button
         self.hint_button = tk.Button(
             self.button_frame,
-            image=self.btn_images['hint_normal'],
+            image=self.btn_images.get('hint_normal'),
             text="💡 Indice",
             compound="center",
             font=("Arial", 11, "bold"),
@@ -101,6 +101,21 @@ class SolitaireApp:
             highlightthickness=0,
         )
         self.hint_button.pack(side=tk.LEFT, padx=5)
+
+        # Abandon button - return to menu
+        self.abandon_button = tk.Button(
+            self.button_frame,
+            text="� Abandonner",
+            font=("Arial", 11, "bold"),
+            bg="#95a5a6",
+            fg="white",
+            padx=15,
+            pady=8,
+            command=self.abandon_game,
+            cursor="hand2",
+            highlightthickness=0,
+        )
+        self.abandon_button.pack(side=tk.LEFT, padx=5)
 
         # Bind hover effects
         self._bind_button_hover(self.reset_button, 'reset')
@@ -197,6 +212,22 @@ class SolitaireApp:
             self._redraw()
         else:
             messagebox.showinfo("Annuler", "Aucun coup à annuler.")
+
+    def abandon_game(self):
+        """Abandon the current game and return to the main menu (if available)."""
+        if messagebox.askyesno("Abandonner", "Voulez-vous vraiment abandonner et retourner au menu ?"):
+            try:
+                # destroy the game window and show menu if possible
+                if getattr(self, '_menu_root', None):
+                    self.root.destroy()
+                    self._menu_root.deiconify()
+                else:
+                    self.root.destroy()
+            except Exception:
+                try:
+                    self.root.destroy()
+                except Exception:
+                    pass
 
     def show_hint(self):
         """Show a hint to the player."""
