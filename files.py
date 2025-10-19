@@ -4,36 +4,36 @@ from piles import Stock, Stack, height
 
 
 class Queue:
-    def __init__(self):
+    def __init__(self) -> None:
         self.items = deque()
 
-    def is_empty(self):
+    def is_empty(self) -> bool:
         return len(self.items) == 0
 
-    def enqueue(self, item):
+    def enqueue(self, item) -> None:
         # Append to the right so the newest card becomes the top (peek() uses [-1])
         self.items.append(item)
 
-    def dequeue(self):
+    def dequeue(self) -> Card | None:
         if not self.is_empty():
             return self.items.pop()
         else:
             return None
 
-    def peek(self):
+    def peek(self) -> Card | None:
         if not self.is_empty():
             return self.items[-1]
         else:
             return None
 
-    def size(self):
+    def size(self) -> int:
         return len(self.items)
 
 
 class Game_queue(Queue):
     """Represents one of the seven tableau piles in Solitaire."""
 
-    def __init__(self, stock: Stock, length: int):
+    def __init__(self, stock: Stock, length: int) -> None:
         super().__init__()
         # Draw cards from the shared stock
         for _ in range(length):
@@ -41,7 +41,7 @@ class Game_queue(Queue):
             if card:
                 self.enqueue(card)
 
-    def can_stack(self, elem: Card):
+    def can_stack(self, elem: Card) -> bool:
         """Check if a card can be placed on this tableau pile."""
         if self.is_empty():
             return elem.value == "roi"
@@ -89,7 +89,7 @@ class Game_queue(Queue):
 
 
 class GameStack(Stack):
-    def __init__(self, stock: Stock, length: int):
+    def __init__(self, stock: Stock, length: int) -> None:
         super().__init__()
         for _ in range(length):
             card = stock.pop()
@@ -126,7 +126,7 @@ class GameStack(Stack):
 class Grid:
     """Represents the seven tableau piles in Solitaire."""
 
-    def __init__(self, stock: Stock):
+    def __init__(self, stock: Stock) -> None:
         # Initialize each column with exactly one visible card in the queue
         # and hidden stack with increasing size (0..6). The queue card is marked face=True.
         # queue: one visible card per column
@@ -151,7 +151,7 @@ class Grid:
 
         self.game = [[self.queue[i], self.stack[i]] for i in range(7)]
 
-    def normalize(self):
+    def normalize(self) -> None:
         """For each column: if the queue is empty and the stack has cards,
         move the top card from the stack into the queue and mark it face-down.
         This keeps the internal game state consistent when cards are moved.

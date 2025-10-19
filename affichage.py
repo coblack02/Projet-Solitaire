@@ -7,7 +7,7 @@ from cartes import Card
 
 class SolitaireApp:
 
-    def __init__(self, root: tk.Tk):
+    def __init__(self, root: tk.Tk) -> None:
         self.root = root
         self.root.title("Solitaire")
         self.root.geometry("1200x800")
@@ -27,7 +27,7 @@ class SolitaireApp:
 
         # Buttons frame at the bottom left
         self.button_frame = tk.Frame(root, bg="darkgreen")
-        self.button_frame.place(x=20, y=750)  # Position en bas Ã  gauche
+        self.button_frame.place(x=20, y=750)  
 
         # Reset button
         self.reset_button = tk.Button(
@@ -76,10 +76,10 @@ class SolitaireApp:
         # Dictionary to store clickable zones for each card
         self.card_zones = {}
 
-        # Variables pour le drag-and-drop avec suivi de souris
+        # Drag and drop state
         self.dragging = False
         self.drag_start_zone = None
-        self.drag_cards_images = []  # Images des cartes Ã  afficher pendant le drag
+        self.drag_cards_images = []  # Images of cards being dragged
         self.current_mouse_pos = (0, 0)
 
         # Bind mouse events: press/release for drag-drop
@@ -90,7 +90,7 @@ class SolitaireApp:
         # First display
         self._redraw()
 
-    def reset_game(self):
+    def reset_game(self) -> None:
         """reset the game after confirmation."""
         if messagebox.askyesno(
             "Nouvelle Partie", "Voulez-vous vraiment recommencer une nouvelle partie ?"
@@ -109,7 +109,7 @@ class SolitaireApp:
             # Redraw
             self._redraw()
 
-    def undo_move(self):
+    def undo_move(self) -> None:
         """undo the last move."""
         if self.game.save.history:
             self.game.undo_move()
@@ -117,7 +117,7 @@ class SolitaireApp:
         else:
             messagebox.showinfo("Annuler", "Aucun coup à annuler.")
 
-    def load_card_image(self, card: Card):
+    def load_card_image(self, card: Card) -> ImageTk.PhotoImage:
         """Load a card image (or back if face down)."""
         if not card.face:
             img = Image.open("assets/cartes/dos_de_carte.webp")
@@ -129,7 +129,7 @@ class SolitaireApp:
         self.image_refs.append(photo)
         return photo
 
-    def draw_game(self):
+    def draw_game(self) -> None:
         """Update the entire graphical display of the game."""
         # Normalize columns: if a queue is empty but its stack has cards,
         # move the top card from the stack back into the queue (face-down).
@@ -363,7 +363,7 @@ class SolitaireApp:
             font=("Arial", 16, "bold"),
         )
 
-    def get_clicked_card(self, x: float, y: float):
+    def get_clicked_card(self, x: float, y: float) -> tuple[str, dict] | None:
         """Determine which card was clicked based on coordinates."""
         clicked_zones = []
 
@@ -379,12 +379,12 @@ class SolitaireApp:
         return None, None
 
     # Helper methods to access pile structure
-    def _pile_objects(self, pile_index: int):
+    def _pile_objects(self, pile_index: int) -> tuple:
         """Return (queue, stack) for a tableau pile index."""
         elem = self.game.grid.game[pile_index]
         return elem[0], elem[1]
 
-    def _pile_top_card(self, pile_index: int):
+    def _pile_top_card(self, pile_index: int) -> Card | None:
         """Return the top visible card of a pile or None."""
         queue, stack = self._pile_objects(pile_index)
         try:
@@ -400,7 +400,7 @@ class SolitaireApp:
             items = list(queue.items)
             return items[-1] if items else None
 
-    def _rank(self, card: Card):
+    def _rank(self, card: Card) -> int:
         """Return numeric rank for comparison using piles.height from piles module."""
         try:
             from piles import height
@@ -424,7 +424,7 @@ class SolitaireApp:
             ]
             return order.index(card.value)
 
-    def _normalize_columns(self):
+    def _normalize_columns(self ) -> None:
         """Ensure that for each tableau column, if the queue is empty and the stack has cards,
         move the top card from the stack into the queue (and mark it face-down)."""
         for i, elem in enumerate(self.game.grid.game):
@@ -441,7 +441,7 @@ class SolitaireApp:
             if q_size == 0 and s_size > 0:
                 pass
 
-    def _redraw(self):
+    def _redraw(self) -> None:
         """Normalize columns and redraw the GUI."""
         try:
             self._normalize_columns()
@@ -455,7 +455,7 @@ class SolitaireApp:
         self.root.update_idletasks()
         self.root.update()
 
-    def _prepare_dragged_cards(self, start_zone: dict):
+    def _prepare_dragged_cards(self, start_zone: dict) -> None:
         """Prepare card images to display during drag."""
         self.drag_cards_images = []
 
@@ -497,7 +497,7 @@ class SolitaireApp:
                     if img:
                         self.drag_cards_images.append(img)
 
-    def on_mouse_press(self, event: tk.Event):
+    def on_mouse_press(self, event: tk.Event) -> None:
         """Store the zone where the mouse press occurred (start of potential move)."""
         x, y = event.x, event.y
         zone_id, zone = self.get_clicked_card(x, y)
@@ -508,7 +508,7 @@ class SolitaireApp:
             self.drag_start_zone = zone
             self._prepare_dragged_cards(zone)
 
-    def on_mouse_motion(self, event: tk.Event):
+    def on_mouse_motion(self, event: tk.Event) -> None:
         """During drag, update the display to show dragged cards at current mouse position."""
         self.current_mouse_pos = (event.x, event.y)
 
@@ -529,7 +529,7 @@ class SolitaireApp:
             )
             offset_y += 30
 
-    def on_mouse_release(self, event: tk.Event):
+    def on_mouse_release(self, event: tk.Event) -> None:
         """On release, try to move selected cards from start zone to release zone."""
         x, y = event.x, event.y
         start_zone_id, start_zone = (
@@ -672,9 +672,3 @@ class SolitaireApp:
             return
 
         self._redraw()
-
-
-if __name__ == "__main__":
-    root = tk.Tk()
-    app = SolitaireApp(root)
-    root.mainloop()

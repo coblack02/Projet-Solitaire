@@ -4,7 +4,7 @@ from PIL import Image, ImageTk
 
 
 class Card:
-    def __init__(self, c: str, h: str):
+    def __init__(self, c: str, h: str) -> None:
         self.family = c
         self.value = h
         self.face = False

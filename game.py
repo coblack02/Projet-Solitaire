@@ -8,7 +8,7 @@ from cartes import Card
 class Game:
     """Represents the overall game state."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.stock = Stock()
         self.stock.shuffle()
         self.discard_pile = DiscardPile()
@@ -19,11 +19,11 @@ class Game:
 class Save:
     """Handles saving and undoing game states."""
 
-    def __init__(self, game: Game):
+    def __init__(self, game: Game) -> None:
         self.game = game
         self.history = []
 
-    def save_state(self):
+    def save_state(self) -> None:
         """Save current game state."""
         state = {
             "stock": deepcopy(self.game.stock),
@@ -33,7 +33,7 @@ class Save:
         }
         self.history.append(state)
 
-    def undo(self):
+    def undo(self) -> None:
         """Restore previous game state."""
         if self.history:
             state = self.history.pop()
@@ -46,19 +46,19 @@ class Save:
 class GameController(Game):
     """Manages game state, player actions, and saving/loading."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.save = Save(self)
         self.turns = 0
 
-    def recycle_discard_to_stock(self):
+    def recycle_discard_to_stock(self) -> None:
         """Recycle all cards from the discard pile back to the stock."""
         while not self.discard_pile.is_empty():
             card = self.discard_pile.pop()
             if card:
                 self.stock.push(card)
 
-    def draw_from_stock(self):
+    def draw_from_stock(self) -> None:
         """Draw up to three cards from the stock to the discard pile."""
         self.save.save_state()
         
@@ -78,7 +78,7 @@ class GameController(Game):
             self.turns += 1
             self._normalize_grid()
 
-    def _normalize_grid(self):
+    def _normalize_grid(self) -> None:
         """Normalize the grid if the method exists."""
         try:
             if hasattr(self.grid, "normalize"):
@@ -123,7 +123,7 @@ class GameController(Game):
                     return False
         return False
 
-    def _reveal_top_card(self, pile_index: int):
+    def _reveal_top_card(self, pile_index: int) -> None:
         """reveal the top hidden card of the specified tableau pile if needed."""
         try:
             elem = self.grid.game[pile_index]
@@ -144,7 +144,7 @@ class GameController(Game):
         source: Union[Game_queue, FinalPile],
         destination: Union[Game_queue, FinalPile],
         num_cards: int = 1,
-    ):
+    ) -> bool:
         """Move card from source to destination if the move is valid."""
         self.save.save_state()
         
@@ -197,14 +197,14 @@ class GameController(Game):
 
         return False
 
-    def undo_move(self):
+    def undo_move(self) -> None:
         """Undo the last move."""
         if self.save.history:
             self.save.undo()
             self.turns += 1
             self._normalize_grid()
 
-    def all_tableau_cards_revealed(self):
+    def all_tableau_cards_revealed(self) -> bool:
         """check if all tableau cards are revealed."""
         try:
             for elem in self.grid.game:
@@ -219,14 +219,14 @@ class GameController(Game):
         except Exception as e:
             return False
 
-    def can_move_to_foundation(self, card: Card):
+    def can_move_to_foundation(self, card: Card) -> Union[FinalPile, None]:
         """Check if a card can be moved to any foundation pile."""
         for foundation in self.final_piles:
             if foundation.can_stack(card):
                 return foundation
         return None
 
-    def auto_complete(self):
+    def auto_complete(self) -> None:
         """Automatically complete the game by placing all cards on the foundations."""
         moves_made = True
         redraw_callback = getattr(self, "_redraw_callback", None)
@@ -274,7 +274,7 @@ class GameController(Game):
 
         return True
 
-    def check_and_auto_complete(self):
+    def check_and_auto_complete(self) -> bool:
         """Check if all tableau cards are revealed and start auto-completion."""
         if self.all_tableau_cards_revealed():
             return self.auto_complete()
