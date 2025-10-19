@@ -174,7 +174,7 @@ class SolitaireApp:
         if not card.face:
             img = Image.open("assets/cartes/dos_de_carte.webp")
         else:
-            img = Image.open(f"assets/cartes/{card.value}_{card.family}.gif")
+            img = Image.open(f"assets/cartes/{card.value}_{card.family}.png")
         img = img.resize((100, 150))
         photo = ImageTk.PhotoImage(img)
         self.image_refs.append(photo)
