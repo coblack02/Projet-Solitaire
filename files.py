@@ -1,6 +1,7 @@
 from collections import deque
 from cartes import Card
-from piles import Stock,Stack,height
+from piles import Stock, Stack, height
+
 
 class Queue:
     def __init__(self):
@@ -27,12 +28,12 @@ class Queue:
 
     def size(self):
         return len(self.items)
-    
+
 
 class Game_queue(Queue):
     """Represents one of the seven tableau piles in Solitaire."""
 
-    def __init__(self, stock, length):
+    def __init__(self, stock: Stock, length: int):
         super().__init__()
         # Draw cards from the shared stock
         for _ in range(length):
@@ -59,7 +60,7 @@ class Game_queue(Queue):
             else:
                 return False
 
-    def move(self, num_cards: int, destination_queue):
+    def move(self, num_cards: int, destination_queue: "Game_queue") -> bool:
         """Move the bottom num_cards cards from this queue to destination."""
         if num_cards > self.size():
             return False
@@ -84,32 +85,33 @@ class Game_queue(Queue):
             while not temp.is_empty():
                 self.enqueue(temp.pop())
             return False
-        
+
     def __repr__(self):
         return f"GameQueue({list(self.items)})"
 
 
 class GameStack(Stack):
-    def __init__(self, stock,lenght):
+    def __init__(self, stock: Stock, length: int):
         super().__init__()
-        for _ in range(lenght):
-            card=stock.pop()
+        for _ in range(length):
+            card = stock.pop()
             if card:
                 self.push(card)
 
     def __repr__(self):
         return f"GameStack({self.items})"
 
-    def flip_into_queue(self, queue):
+    def flip_into_queue(self, queue: Game_queue) -> bool:
         """Pop the top card from this hidden stack and enqueue it into the provided queue.
         Returns True if a card was flipped, False otherwise."""
         try:
             card = self.pop()
         except Exception:
             # fallback to list manipulation
-            items = list(getattr(self, 'items', []))
+            items = list(getattr(self, "items", []))
             card = items.pop() if items else None
             from collections import deque
+
             self.items = deque(items)
 
         if card:
@@ -125,12 +127,11 @@ class GameStack(Stack):
             return True
         return False
 
-        
 
 class Grid:
     """Represents the seven tableau piles in Solitaire."""
-    
-    def __init__(self, stock):
+
+    def __init__(self, stock: Stock):
         # Initialize each column with exactly one visible card in the queue
         # and hidden stack with increasing size (0..6). The queue card is marked face=True.
         # queue: one visible card per column
@@ -147,15 +148,17 @@ class Grid:
             except Exception:
                 # fallback if peek not available
                 try:
-                    items = list(getattr(q, 'items', []))
+                    items = list(getattr(q, "items", []))
                     if items:
                         items[-1].face = True
                 except Exception:
                     pass
 
         self.game = [[self.queue[i], self.stack[i]] for i in range(7)]
+
     def __str__(self) -> str:
         return f"GameStack({self.game})"
+
     def normalize(self):
         """For each column: if the queue is empty and the stack has cards,
         move the top card from the stack into the queue and mark it face-down.

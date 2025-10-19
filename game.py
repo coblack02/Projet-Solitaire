@@ -1,6 +1,8 @@
 from copy import deepcopy
 from piles import Stock, DiscardPile, FinalPile
 from files import Grid, Game_queue
+from typing import Union
+from cartes import Card
 
 
 class Game:
@@ -39,8 +41,6 @@ class Save:
             self.game.discard_pile = state["discard_pile"]
             self.game.final_piles = state["final_piles"]
             self.game.grid = state["grid"]
-        else:
-            print("No more undos available.")
 
 
 class GameController(Game):
@@ -52,7 +52,7 @@ class GameController(Game):
         self.turns = 0
 
     def recycle_discard_to_stock(self):
-        """Remet toutes les cartes de la défausse dans le stock."""
+        """Recycle all cards from the discard pile back to the stock."""
         while not self.discard_pile.is_empty():
             card = self.discard_pile.pop()
             if card:
@@ -60,117 +60,110 @@ class GameController(Game):
 
     def draw_from_stock(self):
         """Draw up to three cards from the stock to the discard pile."""
-        # Si le stock est vide, recycler la défausse
+        self.save.save_state()
+        
         if self.stock.is_empty():
             if not self.discard_pile.is_empty():
                 self.recycle_discard_to_stock()
                 self.turns += 1
-                self.save.save_state()
                 self._normalize_grid()
                 return
             else:
-                print("Stock and discard pile are both empty.")
                 return
-        
-        # Tirer normalement 3 cartes
+
         drawn_cards = self.stock.draw()
         if drawn_cards:
             for card in drawn_cards:
                 self.discard_pile.push(card)
             self.turns += 1
-            self.save.save_state()
             self._normalize_grid()
 
     def _normalize_grid(self):
-        """Normalise la grille si la méthode existe."""
+        """Normalize the grid if the method exists."""
         try:
-            if hasattr(self.grid, 'normalize'):
+            if hasattr(self.grid, "normalize"):
                 self.grid.normalize()
         except Exception as e:
-            print(f"Warning: normalize failed - {e}")
+            pass
 
-    def move_from_discard(self, destination):
+    def move_from_discard(self, destination: Union[FinalPile, Game_queue]) -> bool:
         """Move top card from discard pile to destination."""
+        self.save.save_state()
+        
         card_to_move = self.discard_pile.pop()
         dest_pile_index = None
-        
-        # Identifier l'index si la destination est dans le tableau
+
         if isinstance(destination, Game_queue):
             for i, elem in enumerate(self.grid.game):
                 if elem[0] == destination:
                     dest_pile_index = i
                     break
-        
+
         if card_to_move:
             if isinstance(destination, FinalPile):
                 if destination.can_stack(card_to_move):
                     destination.push(card_to_move)
                     self.turns += 1
-                    self.save.save_state()
                     self._normalize_grid()
-                    # Vérifier si on peut auto-compléter
                     self.check_and_auto_complete()
                     return True
                 else:
                     self.discard_pile.push(card_to_move)
-                    print("Invalid move from discard pile.")
+                    self.save.history.pop()
                     return False
             elif isinstance(destination, Game_queue):
                 if destination.can_stack(card_to_move):
                     destination.enqueue(card_to_move)
                     self.turns += 1
-                    self.save.save_state()
                     self._normalize_grid()
                     return True
                 else:
                     self.discard_pile.push(card_to_move)
-                    print("Invalid move from discard pile.")
+                    self.save.history.pop()
                     return False
         return False
 
-    def _reveal_top_card(self, pile_index):
-        """Révèle la carte du dessus d'une pile du tableau après un déplacement."""
+    def _reveal_top_card(self, pile_index: int):
+        """reveal the top hidden card of the specified tableau pile if needed."""
         try:
             elem = self.grid.game[pile_index]
-            queue = elem[0]  # Cartes visibles
-            stack = elem[1]  # Cartes cachées
-            
-            # Si la queue est vide et le stack a des cartes
+            queue = elem[0]
+            stack = elem[1]
+
             if queue.is_empty() and not stack.is_empty():
-                # Prendre la carte du dessus du stack
                 card = stack.pop()
                 if card:
-                    # La retourner face visible
                     card.face = True
-                    # La mettre dans la queue
                     queue.enqueue(card)
-                    print(f"Carte révélée sur la pile {pile_index}: {card.value} de {card.family}")
-                    # Vérifier si on peut auto-compléter après révélation
                     self.check_and_auto_complete()
         except Exception as e:
-            print(f"Erreur lors de la révélation de carte: {e}")
+            pass
 
-    def move_card(self, source, destination, num_cards=1):
-        """Move card(s) from source to destination if the move is valid."""
-        source_pile_index = None
+    def move_card(
+        self,
+        source: Union[Game_queue, FinalPile],
+        destination: Union[Game_queue, FinalPile],
+        num_cards: int = 1,
+    ):
+        """Move card from source to destination if the move is valid."""
+        self.save.save_state()
         
-        # Identifier l'index de la pile source dans le tableau
+        source_pile_index = None
+
         for i, elem in enumerate(self.grid.game):
-            if elem[0] == source:  # elem[0] est la queue
+            if elem[0] == source:
                 source_pile_index = i
                 break
-        
+
         if isinstance(source, Game_queue) and isinstance(destination, Game_queue):
             if source.move(num_cards, destination):
                 self.turns += 1
-                # Révéler la carte derrière si nécessaire
                 if source_pile_index is not None:
                     self._reveal_top_card(source_pile_index)
-                self.save.save_state()
                 self._normalize_grid()
                 return True
             else:
-                print("Invalid move between tableau piles.")
+                self.save.history.pop()
                 return False
 
         elif isinstance(source, Game_queue) and isinstance(destination, FinalPile):
@@ -178,18 +171,15 @@ class GameController(Game):
             if card_to_move and destination.can_stack(card_to_move):
                 destination.push(card_to_move)
                 self.turns += 1
-                # Révéler la carte derrière si nécessaire
                 if source_pile_index is not None:
                     self._reveal_top_card(source_pile_index)
-                self.save.save_state()
                 self._normalize_grid()
-                # Vérifier si on peut auto-compléter
                 self.check_and_auto_complete()
                 return True
             else:
                 if card_to_move:
                     source.enqueue(card_to_move)
-                print("Invalid move from tableau to foundation.")
+                self.save.history.pop()
                 return False
 
         elif isinstance(source, FinalPile) and isinstance(destination, Game_queue):
@@ -197,29 +187,28 @@ class GameController(Game):
             if card_to_move and destination.can_stack(card_to_move):
                 destination.enqueue(card_to_move)
                 self.turns += 1
-                self.save.save_state()
                 self._normalize_grid()
                 return True
             else:
                 if card_to_move:
                     source.push(card_to_move)
-                print("Invalid move from foundation to tableau.")
+                self.save.history.pop()
                 return False
 
         return False
 
     def undo_move(self):
         """Undo the last move."""
-        self.save.undo()
-        self.turns += 1
-        self._normalize_grid()
+        if self.save.history:
+            self.save.undo()
+            self.turns += 1
+            self._normalize_grid()
 
     def all_tableau_cards_revealed(self):
-        """Vérifie si toutes les cartes du tableau sont retournées (face visible)."""
+        """check if all tableau cards are revealed."""
         try:
             for elem in self.grid.game:
-                stack = elem[1]  # Cartes cachées
-                # Si le stack a encore des cartes, toutes ne sont pas révélées
+                stack = elem[1]
                 try:
                     if not stack.is_empty():
                         return False
@@ -228,28 +217,23 @@ class GameController(Game):
                         return False
             return True
         except Exception as e:
-            print(f"Erreur lors de la vérification: {e}")
             return False
 
-    def can_move_to_foundation(self, card):
-        """Vérifie si une carte peut être placée sur une fondation."""
+    def can_move_to_foundation(self, card: Card):
+        """Check if a card can be moved to any foundation pile."""
         for foundation in self.final_piles:
             if foundation.can_stack(card):
                 return foundation
         return None
 
     def auto_complete(self):
-        """Termine automatiquement le jeu en plaçant toutes les cartes sur les fondations."""
-        print("🎉 Auto-complétion activée !")
+        """Automatically complete the game by placing all cards on the foundations."""
         moves_made = True
-        
-        # Callback pour l'animation (sera défini par l'interface)
-        redraw_callback = getattr(self, '_redraw_callback', None)
-        
+        redraw_callback = getattr(self, "_redraw_callback", None)
+
         while moves_made:
             moves_made = False
-            
-            # Essayer de déplacer depuis la défausse
+
             if not self.discard_pile.is_empty():
                 top_card = self.discard_pile.peek()
                 foundation = self.can_move_to_foundation(top_card)
@@ -258,14 +242,12 @@ class GameController(Game):
                     foundation.push(card)
                     self.turns += 1
                     moves_made = True
-                    # Redessiner pour voir l'animation
                     if redraw_callback:
                         redraw_callback()
                         import time
-                        time.sleep(0.15)  # Pause de 150ms entre chaque carte
+                        time.sleep(0.15)
                     continue
-            
-            # Essayer de déplacer depuis chaque pile du tableau
+
             for i, elem in enumerate(self.grid.game):
                 queue = elem[0]
                 try:
@@ -276,29 +258,24 @@ class GameController(Game):
                             card = queue.dequeue()
                             foundation.push(card)
                             self.turns += 1
-                            # Révéler la carte suivante si nécessaire
                             stack = elem[1]
                             if queue.is_empty() and not stack.is_empty():
                                 hidden_card = stack.pop()
                                 hidden_card.face = True
                                 queue.enqueue(hidden_card)
                             moves_made = True
-                            # Redessiner pour voir l'animation
                             if redraw_callback:
                                 redraw_callback()
                                 import time
-                                time.sleep(0.15)  # Pause de 150ms entre chaque carte
+                                time.sleep(0.15)
                             break
                 except Exception as e:
-                    print(f"Erreur: {e}")
                     pass
-        
-        print("✅ Auto-complétion terminée !")
+
         return True
 
     def check_and_auto_complete(self):
-        """Vérifie si toutes les cartes sont révélées et lance l'auto-complétion."""
+        """Check if all tableau cards are revealed and start auto-completion."""
         if self.all_tableau_cards_revealed():
-            print("🎯 Toutes les cartes sont révélées ! Lancement de l'auto-complétion...")
             return self.auto_complete()
         return False
