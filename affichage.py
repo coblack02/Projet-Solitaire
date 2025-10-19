@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox
 from PIL import Image, ImageTk, ImageDraw
+from audio import AudioManager
 from game import GameController
 from cartes import Card
 
@@ -22,6 +23,10 @@ class SolitaireApp:
             self.game.on_victory = self._on_victory
         except Exception:
             pass
+        
+        self.audio = AudioManager()
+        self.audio.play_music()
+        self.audio.set_volume(0.1)
 
         # Main canvas
         self.canvas = tk.Canvas(
