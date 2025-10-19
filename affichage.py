@@ -7,7 +7,7 @@ from cartes import Card
 
 class SolitaireApp:
 
-    def __init__(self, root: tk.Tk):
+    def __init__(self, root: tk.Tk, menu_root: tk.Tk = None):
         self.root = root
         self.root.title("Solitaire")
         self.root.geometry("1200x800")
@@ -16,6 +16,12 @@ class SolitaireApp:
         # Game initialization
         self.game = GameController()
         self.game._redraw_callback = self._redraw
+        # store menu root to return to it on victory
+        self._menu_root = menu_root
+        try:
+            self.game.on_victory = self._on_victory
+        except Exception:
+            pass
 
         # Main canvas
         self.canvas = tk.Canvas(
