@@ -2,6 +2,7 @@ from copy import deepcopy
 from piles import Stock, DiscardPile, FinalPile
 from files import Grid, Game_queue
 from typing import Union
+import tkinter as tk
 from cartes import Card
 
 
@@ -276,13 +277,55 @@ class GameController(Game):
                 except Exception as e:
                     pass
 
-        # After auto-complete finishes, trigger a victory callback if all foundations are full
+        # After auto-complete finishes, if all foundations are full show a victory overlay
         try:
             complete = all([p.size() == 13 for p in self.final_piles])
-            if complete and callable(getattr(self, "on_victory", None)):
+            if complete:
+                # Try to get the UI app instance from the redraw callback
+                redraw_callback = getattr(self, '_redraw_callback', None)
+                app_instance = None
                 try:
-                    self.on_victory()
+                    if callable(redraw_callback) and hasattr(redraw_callback, '__self__'):
+                        app_instance = redraw_callback.__self__
                 except Exception:
+                    app_instance = None
+
+                if app_instance is not None:
+                    ui_root = getattr(app_instance, 'root', None)
+                    menu_root = getattr(app_instance, '_menu_root', None)
+                    if ui_root is not None:
+                        # Create overlay on UI root
+                        overlay = tk.Toplevel(ui_root)
+                        overlay.attributes("-fullscreen", True)
+                        overlay.config(bg="black")
+                        try:
+                            overlay.attributes("-alpha", 0.85)
+                        except Exception:
+                            pass
+
+                        frame = tk.Frame(overlay, bg="black")
+                        frame.place(relx=0.5, rely=0.5, anchor="center")
+                        label = tk.Label(frame, text="Victoire!", font=("Arial", 64, "bold"), fg="white", bg="black")
+                        label.pack(padx=20, pady=20)
+
+                        def finish():
+                            try:
+                                overlay.destroy()
+                            except Exception:
+                                pass
+                            try:
+                                ui_root.destroy()
+                            except Exception:
+                                pass
+                            try:
+                                if menu_root:
+                                    menu_root.deiconify()
+                            except Exception:
+                                pass
+
+                        overlay.after(4000, finish)
+                else:
+                    # No UI instance available; nothing to display here
                     pass
         except Exception:
             pass
