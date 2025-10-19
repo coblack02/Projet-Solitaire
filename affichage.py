@@ -611,6 +611,8 @@ root = tk.Tk()
 
     def _on_victory(self) -> None:
         """Display a victory overlay and return to the menu after a delay."""
+        self.audio.stop_music()
+        self.audio.play_music(filepath="assets/musique/victory_music.mp3", loops=0)
         try:
             # Overlay frame covering the root
             overlay = tk.Toplevel(self.root)
