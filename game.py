@@ -9,7 +9,7 @@ from cartes import Card
 class Game:
     """Represents the overall game state."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.stock = Stock()
         self.stock.shuffle()
         self.discard_pile = DiscardPile()
@@ -20,11 +20,11 @@ class Game:
 class Save:
     """Handles saving and undoing game states."""
 
-    def __init__(self, game: Game):
+    def __init__(self, game: Game) -> None:
         self.game = game
         self.history = []
 
-    def save_state(self):
+    def save_state(self) -> None:
         """Save current game state."""
         state = {
             "stock": deepcopy(self.game.stock),
@@ -34,7 +34,7 @@ class Save:
         }
         self.history.append(state)
 
-    def undo(self):
+    def undo(self) -> None:
         """Restore previous game state."""
         if self.history:
             state = self.history.pop()
@@ -47,24 +47,24 @@ class Save:
 class GameController(Game):
     """Manages game state, player actions, and saving/loading."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.save = Save(self)
         self.turns = 0
         # Optional callback that will be called when the game is completed
         self.on_victory = None
 
-    def recycle_discard_to_stock(self):
+    def recycle_discard_to_stock(self) -> None:
         """Recycle all cards from the discard pile back to the stock."""
         while not self.discard_pile.is_empty():
             card = self.discard_pile.pop()
             if card:
                 self.stock.push(card)
 
-    def draw_from_stock(self):
+    def draw_from_stock(self) -> None:
         """Draw up to three cards from the stock to the discard pile."""
         self.save.save_state()
-        
+
         if self.stock.is_empty():
             if not self.discard_pile.is_empty():
                 self.recycle_discard_to_stock()
@@ -81,7 +81,7 @@ class GameController(Game):
             self.turns += 1
             self._normalize_grid()
 
-    def _normalize_grid(self):
+    def _normalize_grid(self) -> None:
         """Normalize the grid if the method exists."""
         try:
             if hasattr(self.grid, "normalize"):
@@ -92,7 +92,7 @@ class GameController(Game):
     def move_from_discard(self, destination: Union[FinalPile, Game_queue]) -> bool:
         """Move top card from discard pile to destination."""
         self.save.save_state()
-        
+
         card_to_move = self.discard_pile.pop()
         dest_pile_index = None
 
@@ -126,7 +126,7 @@ class GameController(Game):
                     return False
         return False
 
-    def _reveal_top_card(self, pile_index: int):
+    def _reveal_top_card(self, pile_index: int) -> None:
         """reveal the top hidden card of the specified tableau pile if needed."""
         try:
             elem = self.grid.game[pile_index]
@@ -147,10 +147,10 @@ class GameController(Game):
         source: Union[Game_queue, FinalPile],
         destination: Union[Game_queue, FinalPile],
         num_cards: int = 1,
-    ):
+    ) -> bool:
         """Move card from source to destination if the move is valid."""
         self.save.save_state()
-        
+
         source_pile_index = None
 
         for i, elem in enumerate(self.grid.game):
@@ -200,14 +200,14 @@ class GameController(Game):
 
         return False
 
-    def undo_move(self):
+    def undo_move(self) -> None:
         """Undo the last move."""
         if self.save.history:
             self.save.undo()
             self.turns += 1
             self._normalize_grid()
 
-    def all_tableau_cards_revealed(self):
+    def all_tableau_cards_revealed(self) -> bool:
         """check if all tableau cards are revealed."""
         try:
             for elem in self.grid.game:
@@ -222,14 +222,14 @@ class GameController(Game):
         except Exception as e:
             return False
 
-    def can_move_to_foundation(self, card: Card):
+    def can_move_to_foundation(self, card: Card) -> Union[FinalPile, None]:
         """Check if a card can be moved to any foundation pile."""
         for foundation in self.final_piles:
             if foundation.can_stack(card):
                 return foundation
         return None
 
-    def auto_complete(self):
+    def auto_complete(self) -> None:
         """Automatically complete the game by placing all cards on the foundations."""
         moves_made = True
         redraw_callback = getattr(self, "_redraw_callback", None)
@@ -248,6 +248,7 @@ class GameController(Game):
                     if redraw_callback:
                         redraw_callback()
                         import time
+
                         time.sleep(0.15)
                     continue
 
@@ -270,6 +271,7 @@ class GameController(Game):
                             if redraw_callback:
                                 redraw_callback()
                                 import time
+
                                 time.sleep(0.15)
                             break
                 except Exception as e:
@@ -330,16 +332,16 @@ class GameController(Game):
 
         return True
 
-    def check_and_auto_complete(self):
+    def check_and_auto_complete(self) -> bool:
         """Check if all tableau cards are revealed and start auto-completion."""
         if self.all_tableau_cards_revealed():
             return self.auto_complete()
         return False
 
-    def find_best_hint(self):
+    def find_best_hint(self) -> Union[dict, None]:
         """Find the best move hint for the player."""
         hints = []
-        
+
         # Priority 1: Move to foundation (highest priority)
         # Check discard pile
         if not self.discard_pile.is_empty():
@@ -347,14 +349,16 @@ class GameController(Game):
             foundation = self.can_move_to_foundation(top_card)
             if foundation:
                 foundation_index = self.final_piles.index(foundation)
-                hints.append({
-                    'priority': 1,
-                    'type': 'discard_to_foundation',
-                    'card': top_card,
-                    'foundation_index': foundation_index,
-                    'message': f"Placer {top_card.value} de {top_card.family} de la défausse vers la fondation {foundation_index + 1}"
-                })
-        
+                hints.append(
+                    {
+                        "priority": 1,
+                        "type": "discard_to_foundation",
+                        "card": top_card,
+                        "foundation_index": foundation_index,
+                        "message": f"Placer {top_card.value} de {top_card.family} de la défausse vers la fondation {foundation_index + 1}",
+                    }
+                )
+
         # Check tableau piles for moves to foundation
         for i, elem in enumerate(self.grid.game):
             queue = elem[0]
@@ -364,17 +368,19 @@ class GameController(Game):
                     foundation = self.can_move_to_foundation(top_card)
                     if foundation:
                         foundation_index = self.final_piles.index(foundation)
-                        hints.append({
-                            'priority': 1,
-                            'type': 'tableau_to_foundation',
-                            'card': top_card,
-                            'source_pile': i,
-                            'foundation_index': foundation_index,
-                            'message': f"Placer {top_card.value} de {top_card.family} de la colonne {i + 1} vers la fondation {foundation_index + 1}"
-                        })
+                        hints.append(
+                            {
+                                "priority": 1,
+                                "type": "tableau_to_foundation",
+                                "card": top_card,
+                                "source_pile": i,
+                                "foundation_index": foundation_index,
+                                "message": f"Placer {top_card.value} de {top_card.family} de la colonne {i + 1} vers la fondation {foundation_index + 1}",
+                            }
+                        )
             except:
                 pass
-        
+
         # Priority 2: Reveal hidden cards
         for i, elem in enumerate(self.grid.game):
             queue = elem[0]
@@ -390,33 +396,37 @@ class GameController(Game):
                                 if i != j:
                                     dest_queue = dest_elem[0]
                                     if dest_queue.can_stack(top_card):
-                                        hints.append({
-                                            'priority': 2,
-                                            'type': 'tableau_to_tableau_reveal',
-                                            'card': top_card,
-                                            'source_pile': i,
-                                            'dest_pile': j,
-                                            'message': f"Déplacer {top_card.value} de {top_card.family} de la colonne {i + 1} vers la colonne {j + 1} pour révéler une carte"
-                                        })
+                                        hints.append(
+                                            {
+                                                "priority": 2,
+                                                "type": "tableau_to_tableau_reveal",
+                                                "card": top_card,
+                                                "source_pile": i,
+                                                "dest_pile": j,
+                                                "message": f"Déplacer {top_card.value} de {top_card.family} de la colonne {i + 1} vers la colonne {j + 1} pour révéler une carte",
+                                            }
+                                        )
                     except:
                         pass
             except:
                 pass
-        
+
         # Priority 3: Move from discard to tableau
         if not self.discard_pile.is_empty():
             top_card = self.discard_pile.peek()
             for i, elem in enumerate(self.grid.game):
                 queue = elem[0]
                 if queue.can_stack(top_card):
-                    hints.append({
-                        'priority': 3,
-                        'type': 'discard_to_tableau',
-                        'card': top_card,
-                        'dest_pile': i,
-                        'message': f"Placer {top_card.value} de {top_card.family} de la défausse vers la colonne {i + 1}"
-                    })
-        
+                    hints.append(
+                        {
+                            "priority": 3,
+                            "type": "discard_to_tableau",
+                            "card": top_card,
+                            "dest_pile": i,
+                            "message": f"Placer {top_card.value} de {top_card.family} de la défausse vers la colonne {i + 1}",
+                        }
+                    )
+
         # Priority 4: General tableau moves
         for i, elem in enumerate(self.grid.game):
             queue = elem[0]
@@ -430,44 +440,51 @@ class GameController(Game):
                                 dest_queue = dest_elem[0]
                                 if dest_queue.can_stack(card):
                                     num_cards = len(cards_list) - card_idx
-                                    hints.append({
-                                        'priority': 4,
-                                        'type': 'tableau_to_tableau',
-                                        'card': card,
-                                        'source_pile': i,
-                                        'dest_pile': j,
-                                        'num_cards': num_cards,
-                                        'message': f"Déplacer {num_cards} carte(s) de la colonne {i + 1} vers la colonne {j + 1}"
-                                    })
+                                    hints.append(
+                                        {
+                                            "priority": 4,
+                                            "type": "tableau_to_tableau",
+                                            "card": card,
+                                            "source_pile": i,
+                                            "dest_pile": j,
+                                            "num_cards": num_cards,
+                                            "message": f"Déplacer {num_cards} carte(s) de la colonne {i + 1} vers la colonne {j + 1}",
+                                        }
+                                    )
             except:
                 pass
-        
+
         # Priority 5: Draw from stock
         if not self.stock.is_empty():
-            hints.append({
-                'priority': 5,
-                'type': 'draw_stock',
-                'message': "Piocher 3 cartes du stock"
-            })
+            hints.append(
+                {
+                    "priority": 5,
+                    "type": "draw_stock",
+                    "message": "Piocher 3 cartes du stock",
+                }
+            )
         elif not self.discard_pile.is_empty():
-            hints.append({
-                'priority': 5,
-                'type': 'recycle_stock',
-                'message': "Recycler la défausse vers le stock"
-            })
-        
+            hints.append(
+                {
+                    "priority": 5,
+                    "type": "recycle_stock",
+                    "message": "Recycler la défausse vers le stock",
+                }
+            )
+
         # Sort by priority and return the best hint
         if hints:
-            hints.sort(key=lambda h: h['priority'])
+            hints.sort(key=lambda h: h["priority"])
             return hints[0]
-        
+
         return None
-    
+
     def get_hint_message(self):
         """Get a hint message for the player."""
         hint = self.find_best_hint()
         if hint:
             return hint
         else:
-            return {'message': "Aucun coup évident disponible. Essayez de piocher ou de réorganiser les colonnes."}
-
+            return {
+                "message": "Aucun coup évident disponible. Essayez de piocher ou de réorganiser les colonnes."
+            }

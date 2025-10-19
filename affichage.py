@@ -1,12 +1,14 @@
 import tkinter as tk
 from tkinter import messagebox
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageDraw
+from audio import AudioManager
 from game import GameController
 from cartes import Card
 
 
 class SolitaireApp:
 
+    def __init__(self, root: tk.Tk, menu_root: tk.Tk = None):
     def __init__(self, root: tk.Tk, menu_root: tk.Tk = None):
         self.root = root
         self.root.title("Solitaire")
@@ -22,6 +24,10 @@ class SolitaireApp:
             self.game.on_victory = self._on_victory
         except Exception:
             pass
+
+        self.audio = AudioManager()
+        self.audio.play_music()
+        self.audio.set_volume(0.1)
 
         # Main canvas
         self.canvas = tk.Canvas(
@@ -110,7 +116,9 @@ class SolitaireApp:
 
     def reset_game(self):
         """Reset the game after confirmation."""
-        if messagebox.askyesno("Nouvelle Partie", "Voulez-vous vraiment recommencer une nouvelle partie ?"):
+        if messagebox.askyesno(
+            "Nouvelle Partie", "Voulez-vous vraiment recommencer une nouvelle partie ?"
+        ):
             self.game = GameController()
             self.game._redraw_callback = self._redraw
             self.selected_card = None
@@ -134,51 +142,76 @@ class SolitaireApp:
         """Show a hint to the player."""
         hint = self.game.get_hint_message()
         if hint:
-            message = hint.get('message', 'Aucun indice disponible')
-            
-            if hint.get('type') == 'discard_to_foundation':
+            message = hint.get("message", "Aucun indice disponible")
+
+            if hint.get("type") == "discard_to_foundation":
                 title = "💡 Excellent coup !"
-                detailed_message = f"✨ {message}\n\n🎯 C'est le meilleur coup à jouer !"
-            elif hint.get('type') == 'tableau_to_foundation':
+                detailed_message = (
+                    f"✨ {message}\n\n🎯 C'est le meilleur coup à jouer !"
+                )
+            elif hint.get("type") == "tableau_to_foundation":
                 title = "💡 Excellent coup !"
-                detailed_message = f"✨ {message}\n\n🎯 C'est le meilleur coup à jouer !"
-            elif hint.get('type') == 'tableau_to_tableau_reveal':
+                detailed_message = (
+                    f"✨ {message}\n\n🎯 C'est le meilleur coup à jouer !"
+                )
+            elif hint.get("type") == "tableau_to_tableau_reveal":
                 title = "💡 Bon coup !"
                 detailed_message = f"✨ {message}\n\n🔓 Cela révélera une carte cachée."
-            elif hint.get('type') == 'discard_to_tableau':
+            elif hint.get("type") == "discard_to_tableau":
                 title = "💡 Coup possible"
                 detailed_message = f"✨ {message}\n\n📝 Un coup valide pour progresser."
-            elif hint.get('type') == 'tableau_to_tableau':
+            elif hint.get("type") == "tableau_to_tableau":
                 title = "💡 Coup possible"
-                num_cards = hint.get('num_cards', 1)
+                num_cards = hint.get("num_cards", 1)
                 if num_cards > 1:
-                    detailed_message = f"✨ {message}\n\n📚 Déplacez {num_cards} cartes ensemble."
+                    detailed_message = (
+                        f"✨ {message}\n\n📚 Déplacez {num_cards} cartes ensemble."
+                    )
                 else:
                     detailed_message = f"✨ {message}"
-            elif hint.get('type') == 'draw_stock':
+            elif hint.get("type") == "draw_stock":
                 title = "💡 Action suggérée"
                 detailed_message = "✨ Piochez 3 nouvelles cartes du stock\n\n🎴 Cela peut débloquer de nouvelles possibilités."
-            elif hint.get('type') == 'recycle_stock':
+            elif hint.get("type") == "recycle_stock":
                 title = "💡 Action suggérée"
                 detailed_message = "✨ Recyclez la défausse vers le stock\n\n♻️ Pour continuer à piocher des cartes."
             else:
                 title = "💡 Indice"
                 detailed_message = message
-            
+
             messagebox.showinfo(title, detailed_message)
         else:
-            messagebox.showinfo("💡 Indice", "Aucun coup évident disponible.\n\nEssayez de piocher ou de réorganiser les colonnes.")
+            messagebox.showinfo(
+                "💡 Indice",
+                "Aucun coup évident disponible.\n\nEssayez de piocher ou de réorganiser les colonnes.",
+            )
 
     def load_card_image(self, card: Card):
         """Load a card image (or back if face down)."""
         if not card.face:
-            img = Image.open("assets/cartes/dos_de_carte.webp")
+            img = Image.open("assets/cartes/dos_de_carte.jpg")
         else:
-            img = Image.open(f"assets/cartes/{card.value}_{card.family}.gif")
+            img = Image.open(f"assets/cartes/{card.value}_{card.family}.png")
         img = img.resize((100, 150))
+
+        img = self._round_corners(img, radius=5)
+
         photo = ImageTk.PhotoImage(img)
         self.image_refs.append(photo)
         return photo
+
+    def _round_corners(self, img: Image.Image, radius: int = 15):
+        """Arrondir les coins d'une image."""
+        # Créer un masque circulaire
+        mask = Image.new("L", img.size, 0)
+        draw = ImageDraw.Draw(mask)
+
+        # Dessiner les coins arrondis
+        draw.rounded_rectangle([(0, 0), img.size], radius=radius, fill=255)
+
+        # Appliquer le masque
+        img.putalpha(mask)
+        return img
 
     def draw_game(self):
         """Update the entire graphical display of the game."""
@@ -189,15 +222,50 @@ class SolitaireApp:
 
         # Stock
         if not self.game.stock.is_empty():
-            stock_img = Image.open("assets/cartes/dos_de_carte.webp").resize((100, 150))
+            stock_img = Image.open("assets/cartes/dos_de_carte.jpg").resize((100, 150))
+            stock_img = self._round_corners(stock_img, radius=5)
             stock_photo = ImageTk.PhotoImage(stock_img)
             self.image_refs.append(stock_photo)
-            self.canvas.create_image(self.stock_position[0], self.stock_position[1], image=stock_photo, anchor="nw", tags="stock")
-            self.card_zones["stock"] = {"x1": self.stock_position[0], "y1": self.stock_position[1], "x2": self.stock_position[0] + 100, "y2": self.stock_position[1] + 150, "type": "stock"}
+            self.canvas.create_image(
+                self.stock_position[0],
+                self.stock_position[1],
+                image=stock_photo,
+                anchor="nw",
+                tags="stock",
+            )
+            self.card_zones["stock"] = {
+                "x1": self.stock_position[0],
+                "y1": self.stock_position[1],
+                "x2": self.stock_position[0] + 100,
+                "y2": self.stock_position[1] + 150,
+                "type": "stock",
+            }
         else:
-            self.canvas.create_rectangle(self.stock_position[0], self.stock_position[1], self.stock_position[0] + 100, self.stock_position[1] + 150, fill="darkgreen", outline="white", width=2, dash=(5, 5), tags="stock")
-            self.canvas.create_text(self.stock_position[0] + 50, self.stock_position[1] + 75, text="♻️\nRecycler", fill="white", font=("Arial", 10))
-            self.card_zones["stock"] = {"x1": self.stock_position[0], "y1": self.stock_position[1], "x2": self.stock_position[0] + 100, "y2": self.stock_position[1] + 150, "type": "stock"}
+            self.canvas.create_rectangle(
+                self.stock_position[0],
+                self.stock_position[1],
+                self.stock_position[0] + 100,
+                self.stock_position[1] + 150,
+                fill="darkgreen",
+                outline="white",
+                width=2,
+                dash=(5, 5),
+                tags="stock",
+            )
+            self.canvas.create_text(
+                self.stock_position[0] + 50,
+                self.stock_position[1] + 75,
+                text="♻️\nRecycler",
+                fill="white",
+                font=("Arial", 10),
+            )
+            self.card_zones["stock"] = {
+                "x1": self.stock_position[0],
+                "y1": self.stock_position[1],
+                "x2": self.stock_position[0] + 100,
+                "y2": self.stock_position[1] + 150,
+                "type": "stock",
+            }
 
         # Discard pile
         if not self.game.discard_pile.is_empty():
@@ -209,11 +277,33 @@ class SolitaireApp:
                     img = self.load_card_image(card)
                     if img:
                         x_pos = self.discard_position[0] + (i * card_offset)
-                        self.canvas.create_image(x_pos, self.discard_position[1], image=img, anchor="nw", tags=f"discard_{i}")
+                        self.canvas.create_image(
+                            x_pos,
+                            self.discard_position[1],
+                            image=img,
+                            anchor="nw",
+                            tags=f"discard_{i}",
+                        )
                         is_last = i == len(visible_cards) - 1
-                        self.card_zones[f"discard_{i}"] = {"x1": x_pos, "y1": self.discard_position[1], "x2": x_pos + 100, "y2": self.discard_position[1] + (150 if is_last else card_offset), "type": "discard", "index": i, "is_last": is_last}
+                        self.card_zones[f"discard_{i}"] = {
+                            "x1": x_pos,
+                            "y1": self.discard_position[1],
+                            "x2": x_pos + 100,
+                            "y2": self.discard_position[1]
+                            + (150 if is_last else card_offset),
+                            "type": "discard",
+                            "index": i,
+                            "is_last": is_last,
+                        }
         else:
-            self.canvas.create_rectangle(self.discard_position[0], self.discard_position[1], self.discard_position[0] + 100, self.discard_position[1] + 150, outline="white", width=2)
+            self.canvas.create_rectangle(
+                self.discard_position[0],
+                self.discard_position[1],
+                self.discard_position[0] + 100,
+                self.discard_position[1] + 150,
+                outline="white",
+                width=2,
+            )
 
         # Foundation piles
         for i, pile in enumerate(self.game.final_piles):
@@ -223,11 +313,30 @@ class SolitaireApp:
                 top_card.face = True
                 img = self.load_card_image(top_card)
                 if img:
-                    self.canvas.create_image(x, 100, image=img, anchor="nw", tags=f"final_{i}")
-                    self.card_zones[f"final_{i}"] = {"x1": x, "y1": 100, "x2": x + 100, "y2": 250, "type": "final", "index": i}
+                    self.canvas.create_image(
+                        x, 100, image=img, anchor="nw", tags=f"final_{i}"
+                    )
+                    self.card_zones[f"final_{i}"] = {
+                        "x1": x,
+                        "y1": 100,
+                        "x2": x + 100,
+                        "y2": 250,
+                        "type": "final",
+                        "index": i,
+                    }
             else:
-                self.canvas.create_rectangle(x, 100, x + 100, 250, outline="white", width=2)
-                self.card_zones[f"final_{i}"] = {"x1": x, "y1": 100, "x2": x + 100, "y2": 250, "type": "final", "index": i, "is_empty": True}
+                self.canvas.create_rectangle(
+                    x, 100, x + 100, 250, outline="white", width=2
+                )
+                self.card_zones[f"final_{i}"] = {
+                    "x1": x,
+                    "y1": 100,
+                    "x2": x + 100,
+                    "y2": 250,
+                    "type": "final",
+                    "index": i,
+                    "is_empty": True,
+                }
 
         # Tableau piles
         for i, elem in enumerate(self.game.grid.game):
@@ -247,31 +356,72 @@ class SolitaireApp:
                 n_stack = len(list(stack.items))
 
             if n_queue == 0 and n_stack == 0:
-                self.canvas.create_rectangle(x, y, x + 100, y + 150, outline="white", width=2, dash=(5, 5))
-                self.card_zones[f"tableau_{i}_empty"] = {"x1": x, "y1": y, "x2": x + 100, "y2": y + 150, "type": "tableau", "pile_index": i, "card_index": None, "is_empty": True}
+                self.canvas.create_rectangle(
+                    x, y, x + 100, y + 150, outline="white", width=2, dash=(5, 5)
+                )
+                self.card_zones[f"tableau_{i}_empty"] = {
+                    "x1": x,
+                    "y1": y,
+                    "x2": x + 100,
+                    "y2": y + 150,
+                    "type": "tableau",
+                    "pile_index": i,
+                    "card_index": None,
+                    "is_empty": True,
+                }
             else:
                 for j, card in enumerate(list(stack.items)):
                     card.face = False
                     img = self.load_card_image(card)
                     card_y = y + j * offset
                     if img:
-                        self.canvas.create_image(x, card_y, image=img, anchor="nw", tags=f"tableau_{i}_s_{j}")
+                        self.canvas.create_image(
+                            x, card_y, image=img, anchor="nw", tags=f"tableau_{i}_s_{j}"
+                        )
                     is_top_stack = j == n_stack - 1
                     clickable_height = 150 if is_top_stack and n_queue == 0 else offset
-                    self.card_zones[f"tableau_{i}_s_{j}"] = {"x1": x, "y1": card_y, "x2": x + 100, "y2": card_y + clickable_height, "type": "tableau", "pile_index": i, "card_index": j, "is_stack": True, "is_top_stack": is_top_stack}
+                    self.card_zones[f"tableau_{i}_s_{j}"] = {
+                        "x1": x,
+                        "y1": card_y,
+                        "x2": x + 100,
+                        "y2": card_y + clickable_height,
+                        "type": "tableau",
+                        "pile_index": i,
+                        "card_index": j,
+                        "is_stack": True,
+                        "is_top_stack": is_top_stack,
+                    }
 
                 for j, card in enumerate(list(queue.items)):
                     card.face = True
                     img = self.load_card_image(card)
                     card_y = y + (n_stack + j) * offset
                     if img:
-                        self.canvas.create_image(x, card_y, image=img, anchor="nw", tags=f"tableau_{i}_q_{j}")
+                        self.canvas.create_image(
+                            x, card_y, image=img, anchor="nw", tags=f"tableau_{i}_q_{j}"
+                        )
                     is_last = j == n_queue - 1
                     clickable_height = 150 if is_last else offset
-                    self.card_zones[f"tableau_{i}_q_{j}"] = {"x1": x, "y1": card_y, "x2": x + 100, "y2": card_y + clickable_height, "type": "tableau", "pile_index": i, "card_index": j, "is_stack": False, "is_last": is_last}
+                    self.card_zones[f"tableau_{i}_q_{j}"] = {
+                        "x1": x,
+                        "y1": card_y,
+                        "x2": x + 100,
+                        "y2": card_y + clickable_height,
+                        "type": "tableau",
+                        "pile_index": i,
+                        "card_index": j,
+                        "is_stack": False,
+                        "is_last": is_last,
+                    }
 
         # Display moves
-        self.canvas.create_text(600, 50, text=f"Coups: {self.game.turns}", fill="white", font=("Arial", 16, "bold"))
+        self.canvas.create_text(
+            600,
+            50,
+            text=f"Coups: {self.game.turns}",
+            fill="white",
+            font=("Arial", 16, "bold"),
+        )
 
     def get_clicked_card(self, x: float, y: float):
         """Determine which card was clicked."""
@@ -303,7 +453,7 @@ class SolitaireApp:
             self.draw_game()
         except:
             pass
-    
+
     def _on_victory(self):
         """Display a victory overlay and return to the menu after a delay."""
         try:
@@ -316,7 +466,13 @@ class SolitaireApp:
             frame = tk.Frame(overlay, bg="black")
             frame.place(relx=0.5, rely=0.5, anchor="center")
 
-            label = tk.Label(frame, text="Vous avez gagné!", font=("Arial", 48, "bold"), fg="white", bg="black")
+            label = tk.Label(
+                frame,
+                text="Vous avez gagné!",
+                font=("Arial", 48, "bold"),
+                fg="white",
+                bg="black",
+            )
             label.pack(padx=20, pady=20)
 
             # After 4 seconds, close overlay and return to menu
@@ -391,13 +547,21 @@ class SolitaireApp:
         self.draw_game()
         offset_y = 0
         for img in self.drag_cards_images:
-            self.canvas.create_image(event.x, event.y + offset_y, image=img, anchor="center", tags="dragged_card")
+            self.canvas.create_image(
+                event.x,
+                event.y + offset_y,
+                image=img,
+                anchor="center",
+                tags="dragged_card",
+            )
             offset_y += 30
 
     def on_mouse_release(self, event: tk.Event):
         """Handle mouse release."""
         x, y = event.x, event.y
-        start_zone_id, start_zone = self.selected_zone if self.selected_zone else (None, None)
+        start_zone_id, start_zone = (
+            self.selected_zone if self.selected_zone else (None, None)
+        )
         end_zone_id, end_zone = self.get_clicked_card(x, y)
 
         self.dragging = False
@@ -447,7 +611,9 @@ class SolitaireApp:
                 n_queue = src_queue.size()
             except:
                 n_queue = len(list(getattr(src_queue, "items", [])))
-            if start_zone.get("is_stack", False) or (start_zone_id and "_s_" in start_zone_id):
+            if start_zone.get("is_stack", False) or (
+                start_zone_id and "_s_" in start_zone_id
+            ):
                 self._redraw()
                 return
             clicked_card_index = start_zone.get("card_index")
@@ -494,6 +660,3 @@ class SolitaireApp:
             return
 
         self._redraw()
-
-
-
